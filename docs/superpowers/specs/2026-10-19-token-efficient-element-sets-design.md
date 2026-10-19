@@ -29,7 +29,7 @@ Archicad 30 ships a native MCP server with element sets (`successful_element_set
 - Archicad 30 or its native MCP.
 - Rewriting or hand-editing the generated command wrappers.
 - A GUI, or binding a GUI to filter definitions.
-- Code-Mode (model-written Python executed by the server) as a product feature. It appears only as a throwaway benchmark arm (§9).
+- Code-Mode (model-written Python executed by the server) as a product feature. It appears only as a deferred, throwaway benchmark arm (§7).
 - OR groups or nested boolean filter logic.
 
 **Anti-goals** (failure even if it technically works)
@@ -170,7 +170,9 @@ The comparison and status semantics live in one module with one test suite. An e
 **Without `planId`: preview.** Nothing is written. The preview returns:
 - `planId` (single use, bound to the set id, a hash of the GUID list and a hash of the assignments).
 - How many elements would change, how many already hold the target value, and a sample diff old → new (up to 10 elements).
-- A failure forecast from read-only checks: not editable (`IsEditable` / `HasAccessRight` flags, which covers locked layers, hotlinked elements and elements not reserved in Teamwork), and property not available for the element. **The preview never reserves elements.**
+- A failure forecast from read-only checks: not editable (`IsEditable` / `HasAccessRight` flags), split by cause where the API allows it. Hotlinked elements have a `hotlinkId` (`GetDetailsOfElements`). In Teamwork projects, elements outside the user's workspace fail the `InMyWorkspace` flag. Locked layers are known from the layer attributes. Anything else not editable falls into "other". Elements where the property is not available form their own group. The builder verifies that these flags separate the causes as described.
+
+**Teamwork: the command never reserves elements, neither in preview nor in apply.** Elements not reserved by the current user are reported as their own failure group (with a set), and the user reserves them in Archicad. An opt-in `reserve` switch may come later; it is not part of v1.
 
 **With `planId`: apply.**
 - The server re-checks that the set and assignments still match the plan, and refuses otherwise.
@@ -210,28 +212,29 @@ Each step is a self-contained PR to the fork's `master`. After it is measured, i
 
 **Driver.** A scripted agent loop (Claude Agent SDK or Messages API tool runner) connects to the server over streamable HTTP, as the repo's integration tests do. Per run it logs input, output, cache-read and cache-write tokens, tool-result bytes, call count, wall time and errors by class.
 
+**Scope (slim first round).** Three arms × two models × five tasks × three runs = 90 agent runs. A full round (more tasks, five runs, Code-Mode arm) follows only if the result is borderline.
+
 **Arms**
 - A: upstream v0.6.5.
 - B: A + steps 1–4.
 - C: B + sets (steps 5–8, plus 10 for write tasks).
-- D: a throwaway Code-Mode prototype, the model writing Python against multiconn. It is run only against fixture copies and never shipped.
+- A throwaway Code-Mode arm (the model writing Python against multiconn, fixture copies only, never shipped) is deferred to the full round.
 
-**Models.** One Haiku-class and one Sonnet-class model, N=5 runs per task, model and arm, at a fixed temperature.
+**Models.** One Haiku-class and one Sonnet-class model, N=3 runs per task, model and arm, at a fixed temperature.
 
-**Fixtures.**
-- Archicad 29 projects, reset before every run by reopening a saved copy.
-- At least two localizations or templates (one German, one international), plus one synthetic project scaled to about 5,000 walls.
-- End states are verified out-of-band through multiconn directly, never through the server under test.
+**Fixtures.** Only a German Archicad 29 is available, so language neutrality is tested through project content, not through the application language:
+- **German fixture:** a German AC29 project with a German template.
+- **International-template fixture:** Tapir's own `archicad-addon/Test/TestProject.pla` (ENZYME-APD/tapir-archicad-automation). Its recorded test outputs show English property groups and classifications, so it comes from an international template. Opened in German AC29, its user-defined properties and classification items keep their English names while built-in names are shown in German. That mix is exactly the case where an agent that assumes German names fails.
+- **Scale fixture:** a copy of the German fixture with about 5,000 walls added by script.
+- Documented limit: built-in property display names are only ever seen in German.
+- Every run starts from a fresh copy of the saved project. End states are verified out-of-band through multiconn directly, never through the server under test.
 
 **Tasks** (each needs an oracle, the project's own interactive schedule or a direct multiconn query):
-1. Doors without a fire rating across three stories, including curtain-wall sub-elements. Output CSV.
-2. Zone areas per story and category, units explicit, reconciled to the project's schedule.
-3. Assign a classification-related property to about 3,000 walls by rule: preview, apply, read back. Target: zero wrong writes.
-4. The same check as task 1 in the international template, with property and group names in that template's language.
-5. Elements whose property is *not available* versus *undefined*, reported separately.
-6. Bulk write where some elements are on a locked layer or hotlinked. Failures must be bucketed by cause, with no silent partial result.
-7. Volume per building material, reconciled to the schedule.
-8. Recovery: the response to a write is dropped mid-task (fault-injecting proxy). The model must recover without a double write.
+1. Doors without a fire rating on the scale fixture, including curtain-wall sub-elements, with *undefined* and *not available* reported separately. Output CSV.
+2. Assign a property value to about 3,000 walls by rule on the scale fixture: preview, apply, read back. Target: zero wrong writes.
+3. The check from task 1 on the international-template fixture, with property and group names as they appear in that project.
+4. Bulk write where some elements are on a locked layer or hotlinked. Failures must be bucketed by cause, with no silent partial result.
+5. Recovery: the response to a write is dropped mid-task (fault-injecting proxy). The model must recover without a double write.
 
 **Metrics.** Success by end-state diff, silent-error count (reported success with a wrong end state), tokens (input/output, cached and uncached, cost-weighted), calls, error classes, peak context. Context overflow counts as failure. Double-applied or out-of-scope writes are a hard fail.
 
@@ -241,7 +244,7 @@ Each step is a self-contained PR to the fork's `master`. After it is measured, i
 - success not lower (paired bootstrap CI),
 - zero unsafe writes.
 
-On small tasks, no more than a 10 % token regression.
+On small tasks, no more than a 10 % token regression. With N=3 the confidence interval is wide. A borderline result therefore triggers the full round rather than a claim.
 
 ## 8. Risks
 
