@@ -3,7 +3,7 @@
 **Date:** 2026-10-19
 **Repo:** fork `DaviiiiiDave/tapir-archicad-MCP` of `SzamosiMate/tapir-archicad-MCP` (base: v0.6.5, Tapir 1.7.1, multiconn_archicad 0.9.x)
 **Target:** Archicad 29
-**Status:** draft for approval
+**Status:** approved 2026-10-19
 
 ## 1. Intent
 
