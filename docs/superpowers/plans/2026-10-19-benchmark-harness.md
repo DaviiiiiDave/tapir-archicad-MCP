@@ -4,7 +4,7 @@ stages:
   4: "Fixtures: Archicad access, oracle, seeding (Task 4-5)"
   5: "Tasks, scoring, runner, report, pilot (Task 6-7)"
   6: "Baseline round, arms A and B (Task 8)"
-current: 2
+current: 3
 ---
 
 # Benchmark Harness and Baseline Implementation Plan (Plan 2 of 4)
