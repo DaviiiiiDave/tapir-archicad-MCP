@@ -5,21 +5,45 @@ from typing import Any
 
 from mcp.types import CallToolResult, ImageContent, TextContent
 
-# Tool name -> top-level result field holding a base64 image string.
+# Tool name -> top-level result field holding one base64 image string.
 IMAGE_FIELDS: dict[str, str] = {
     "elements_get_element_preview_image": "previewImage",
     "favorites_get_favorite_preview_image": "previewImage",
     "elements_get_room_image": "roomImage",
 }
-IMAGE_REFERENCE = "returned as MCP image content #1"
+# Tool name -> top-level result list whose items are {"image": {"content": <base64>}} or {"error": ...}.
+NESTED_IMAGE_LISTS: dict[str, str] = {
+    "attributes_get_profile_attribute_preview": "previewImages",
+}
 
 
-def extract_image(tool_name: str, result: Any) -> tuple[Any, str | None]:
-    """Split an image command's result into the JSON without the image and the base64 image data."""
+def _reference(number: int) -> str:
+    return f"returned as MCP image content #{number}"
+
+
+def extract_images(tool_name: str, result: Any) -> tuple[Any, list[str]]:
+    """Split an image command's result into the JSON without the images and the base64 image data, in order."""
+    if not isinstance(result, dict):
+        return result, []
+
     field = IMAGE_FIELDS.get(tool_name)
-    if field is None or not isinstance(result, dict) or not isinstance(result.get(field), str):
-        return result, None
-    return {**result, field: IMAGE_REFERENCE}, result[field]
+    if field is not None and isinstance(result.get(field), str):
+        return {**result, field: _reference(1)}, [result[field]]
+
+    list_field = NESTED_IMAGE_LISTS.get(tool_name)
+    if list_field is not None and isinstance(result.get(list_field), list):
+        images: list[str] = []
+        items = []
+        for item in result[list_field]:
+            image = item.get("image") if isinstance(item, dict) else None
+            if isinstance(image, dict) and isinstance(image.get("content"), str):
+                images.append(image["content"])
+                item = {**item, "image": {**image, "content": _reference(len(images))}}
+            items.append(item)
+        if images:
+            return {**result, list_field: items}, images
+
+    return result, []
 
 
 def image_content(data: str) -> ImageContent:
@@ -28,12 +52,15 @@ def image_content(data: str) -> ImageContent:
     return ImageContent(type="image", data=data, mime_type=mime_type)
 
 
-def to_tool_result(tool_name: str, result: Any) -> Any:
-    """Wrap an image command's result as a CallToolResult with image content; other results pass through."""
-    stripped, data = extract_image(tool_name, result)
-    if data is None:
-        return result
+def build_image_result(stripped: Any, images: list[str]) -> CallToolResult:
+    """The JSON as text and structured content, followed by one image block per image."""
     return CallToolResult(
-        content=[TextContent(type="text", text=json.dumps(stripped, indent=2)), image_content(data)],
+        content=[TextContent(type="text", text=json.dumps(stripped, indent=2)), *map(image_content, images)],
         structured_content=stripped,
     )
+
+
+def to_tool_result(tool_name: str, result: Any) -> Any:
+    """Wrap an image command's result as a CallToolResult with image content; other results pass through."""
+    stripped, images = extract_images(tool_name, result)
+    return build_image_result(stripped, images) if images else result

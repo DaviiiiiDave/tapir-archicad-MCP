@@ -48,6 +48,44 @@ async def test_non_image_results_are_unchanged(fake_archicad):
 
 
 @pytest.mark.asyncio
+async def test_profile_previews_become_one_image_block_each(fake_archicad):
+    fake_archicad.on_tapir_command(
+        "API.GetProfileAttributePreview",
+        {
+            "previewImages": [
+                {"image": {"content": PNG_B64}},
+                {"error": {"code": 4005, "message": "no such profile"}},
+                {"image": {"content": JPG_B64}},
+            ]
+        },
+    )
+    guid = "00000000-0000-0000-0000-000000000001"
+    arguments = {
+        "port": 19723,
+        "params": {"attributeIds": [{"attributeId": {"guid": guid}}], "imageWidth": 64, "imageHeight": 64},
+    }
+
+    result = await archicad_read_tool("attributes_get_profile_attribute_preview", arguments)
+
+    assert isinstance(result, CallToolResult)
+    assert [block.type for block in result.content] == ["text", "image", "image"]
+    assert [block.mime_type for block in result.content[1:]] == ["image/png", "image/jpeg"]
+    stripped = result.structured_content["previewImages"]
+    assert stripped[0]["image"]["content"] == "returned as MCP image content #1"
+    assert stripped[1]["error"]["message"] == "no such profile"
+    assert stripped[2]["image"]["content"] == "returned as MCP image content #2"
+    assert PNG_B64 not in json.dumps(result.structured_content)
+
+
+def test_image_fields_name_registered_tools(fake_archicad):
+    from tapir_archicad_mcp.images import IMAGE_FIELDS, NESTED_IMAGE_LISTS
+    from tapir_archicad_mcp.tools.tool_registry import TOOL_CALLABLE_REGISTRY
+
+    for name in [*IMAGE_FIELDS, *NESTED_IMAGE_LISTS]:
+        assert name in TOOL_CALLABLE_REGISTRY, name
+
+
+@pytest.mark.asyncio
 async def test_get_job_returns_image_content(fake_archicad):
     fake_archicad.on_tapir_command("GetElementPreviewImage", {"previewImage": PNG_B64})
     await archicad_read_tool("elements_get_element_preview_image", PREVIEW_ARGS)

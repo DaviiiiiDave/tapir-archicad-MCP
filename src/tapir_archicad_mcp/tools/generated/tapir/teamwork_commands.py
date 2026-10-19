@@ -44,7 +44,7 @@ register_tool_for_dispatch(
     title="ReleaseElements",
     description="Releases elements in Teamwork mode.",
     params_model=ReleaseElementsParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 
@@ -59,7 +59,7 @@ register_tool_for_dispatch(
     title="ReleaseHotlinkCacheManagement",
     description="Releases the Hotlink and XRef management in Teamwork mode.",
     params_model=None,
-    kind="write",
+    kind="irreversible",
 )
 
 
@@ -76,7 +76,7 @@ register_tool_for_dispatch(
     title="ReleaseLockableObjectSet",
     description=("Releases a non-element lockable object set reserved with ReserveLockableObjectSet in Teamwork mode."),
     params_model=ReleaseLockableObjectSetParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 
@@ -93,7 +93,7 @@ register_tool_for_dispatch(
     title="ReserveElements",
     description="Reserves elements in Teamwork mode.",
     params_model=ReserveElementsParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 
@@ -110,7 +110,7 @@ register_tool_for_dispatch(
         "Reserves the Hotlink and XRef management in Teamwork mode, which is needed before changing hotlink nodes."
     ),
     params_model=None,
-    kind="write",
+    kind="irreversible",
 )
 
 
@@ -135,7 +135,7 @@ register_tool_for_dispatch(
         "or 'ProjectInfo'."
     ),
     params_model=ReserveLockableObjectSetParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 

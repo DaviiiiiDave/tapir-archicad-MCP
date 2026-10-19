@@ -1,4 +1,7 @@
 import json
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import Mock
@@ -85,6 +88,42 @@ def test_entries_go_to_a_file_per_utc_day(tmp_path):
     assert first.name == "changes-2026-10-19.jsonl"
     assert second.name == "changes-2026-10-20.jsonl"
     assert json.loads(first.read_text())["time"].startswith("2026-10-19T23:59")
+
+
+def test_concurrent_records_from_many_threads_are_all_kept(tmp_path):
+    log = ChangeLog(tmp_path)
+
+    def write(worker: int) -> None:
+        for i in range(60):
+            log.record({"worker": worker, "i": i, "padding": "x" * 200})
+
+    with ThreadPoolExecutor(max_workers=32) as pool:
+        list(pool.map(write, range(32)))
+
+    lines = [line for path in tmp_path.glob("changes-*.jsonl") for line in path.read_text().splitlines()]
+    assert len(lines) == 32 * 60
+    assert len({(json.loads(line)["worker"], json.loads(line)["i"]) for line in lines}) == 32 * 60
+
+
+def test_concurrent_records_from_two_processes_are_all_kept(tmp_path):
+    script = (
+        "import sys\n"
+        "from pathlib import Path\n"
+        "from tapir_archicad_mcp.change_log import ChangeLog\n"
+        "log = ChangeLog(Path(sys.argv[1]))\n"
+        "for i in range(150):\n"
+        "    log.record({'proc': sys.argv[2], 'i': i, 'padding': 'x' * 200})\n"
+    )
+    processes = [
+        subprocess.Popen([sys.executable, "-c", script, str(tmp_path), name], stderr=subprocess.PIPE)
+        for name in ("a", "b")
+    ]
+    for process in processes:
+        assert process.wait(timeout=60) == 0, process.stderr.read().decode()
+
+    lines = [line for path in tmp_path.glob("changes-*.jsonl") for line in path.read_text().splitlines()]
+    assert len(lines) == 300
+    assert all(json.loads(line) for line in lines)
 
 
 def test_fingerprints():

@@ -20,8 +20,8 @@ from pydantic import ValidationError
 from tapir_archicad_mcp.app import mcp
 from tapir_archicad_mcp.context import change_log_instance, job_store_instance, multi_conn_instance
 from tapir_archicad_mcp.jobs import JobStore, arguments_preview
-from tapir_archicad_mcp.images import extract_image, image_content, to_tool_result
-from tapir_archicad_mcp.outcome import summarize_execution_results
+from tapir_archicad_mcp.images import build_image_result, extract_images, to_tool_result
+from tapir_archicad_mcp.outcome import DEFAULT_RESULT_FIELDS, RESULT_LIST_FIELDS, summarize_execution_results
 from tapir_archicad_mcp.pagination import PaginationRequest, prepare_result
 from tapir_archicad_mcp.project_identity import project_fingerprint
 from tapir_archicad_mcp.request_lifecycle import DispatchLifecycle
@@ -339,7 +339,8 @@ def _execute_tool(name: str, tool_entry: ToolRegistryEntry, validated_arguments:
 
 
 def _with_outcome(name: str, result: Any) -> Any:
-    summary = summarize_execution_results(result)
+    fields = RESULT_LIST_FIELDS.get(TOOL_DISCOVERY_CATALOG[name]["title"], DEFAULT_RESULT_FIELDS)
+    summary = summarize_execution_results(result, fields)
     if summary is None:
         return result
     if "outcome" in result:
@@ -442,11 +443,7 @@ async def archicad_get_job(job_handle: str | None = None) -> Annotated[CallToolR
     response = store.response(job)
     if "result" not in response:
         return response
-    stripped, data = extract_image(job.command, response["result"])
-    if data is None:
+    stripped, images = extract_images(job.command, response["result"])
+    if not images:
         return response
-    stripped_response = {**response, "result": stripped}
-    return CallToolResult(
-        content=[TextContent(type="text", text=json.dumps(stripped_response, indent=2)), image_content(data)],
-        structured_content=stripped_response,
-    )
+    return build_image_result({**response, "result": stripped}, images)

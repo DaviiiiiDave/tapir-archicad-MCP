@@ -127,7 +127,7 @@ register_tool_for_dispatch(
         "name the export translator to use."
     ),
     params_model=IFCFileOperationParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 

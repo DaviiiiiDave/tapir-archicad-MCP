@@ -18,6 +18,11 @@ class ApiSourceConfig:
     prefix_to_strip: str = ""
     paginated_commands: dict[str, str] = field(default_factory=dict)
     commands_to_exclude: set[str] = field(default_factory=set)
+    # Every command is in exactly one of the three sets (checked by classify_command):
+    #   read: does not change project data or files.
+    #   write: changes the project, and Archicad's undo can take it back; may export new files.
+    #   irreversible: open/close/save, delete, Teamwork send/receive/reserve/release, publish, IFC file operations,
+    #     anything that replaces or overwrites user files or affects other users.
     read_commands: set[str] = field(default_factory=set)
     write_commands: set[str] = field(default_factory=set)
     irreversible_commands: set[str] = field(default_factory=set)
@@ -243,7 +248,6 @@ TAPIR_CONFIG = ApiSourceConfig(
         "DetachElementsFromIssue",
         "ExportFavorites",
         "ExportIssuesToBCF",
-        "IFCFileOperation",
         "ImportClassificationsXml",
         "ImportFavorites",
         "ImportIssuesFromBCF",
@@ -269,18 +273,12 @@ TAPIR_CONFIG = ApiSourceConfig(
         "MoveElements",
         "MoveElementsToDesignOptions",
         "PrintView",
-        "ReleaseElements",
-        "ReleaseHotlinkCacheManagement",
-        "ReleaseLockableObjectSet",
         "ReloadLibraries",
         "RemoveElementNotificationClient",
         "RemoveElementTrims",
         "RemoveSolidElementLinks",
         "RenameFavorites",
         "RenameNavigatorItem",
-        "ReserveElements",
-        "ReserveHotlinkCacheManagement",
-        "ReserveLockableObjectSet",
         "RotateElements",
         "Set3DCutPlanes",
         "SetActiveDesignOptionsInCombinations",
@@ -325,8 +323,15 @@ TAPIR_CONFIG = ApiSourceConfig(
         "DeleteProjectInfoFields",
         "DeletePropertyDefinitions",
         "DeletePropertyGroups",
+        "IFCFileOperation",
         "OpenProject",
         "PublishPublisherSet",
+        "ReleaseElements",
+        "ReleaseHotlinkCacheManagement",
+        "ReleaseLockableObjectSet",
+        "ReserveElements",
+        "ReserveHotlinkCacheManagement",
+        "ReserveLockableObjectSet",
         "SaveAsModuleFile",
         "SaveProject",
         "SaveProjectAsArchive",

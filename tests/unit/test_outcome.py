@@ -35,6 +35,47 @@ def test_no_outcome_without_execution_results(result):
     assert summarize_execution_results(result) is None
 
 
+def test_outcome_reads_tabled_result_lists_with_error_items():
+    result = {
+        "elements": [
+            {"elementId": {"guid": "00000000-0000-0000-0000-000000000001"}},
+            {"error": {"code": 4003, "message": "locked layer"}},
+            {"error": {"code": 4003, "message": "locked layer"}},
+        ]
+    }
+
+    summary = summarize_execution_results(result, ("elements",))
+
+    assert (summary["requested"], summary["succeeded"], summary["failed"]) == (3, 1, 2)
+    assert summary["failuresByCause"] == [{"code": 4003, "message": "locked layer", "count": 2, "examples": [1, 2]}]
+
+
+def test_outcome_without_tabled_field_in_response_is_none():
+    assert summarize_execution_results({"other": []}, ("elements",)) is None
+
+
+@pytest.mark.asyncio
+async def test_partially_failed_create_walls_carries_outcome(fake_archicad):
+    ok = {"elementId": {"guid": "00000000-0000-0000-0000-000000000001"}}
+    failed = {"error": {"code": 4010, "message": "bad polygon"}}
+    fake_archicad.on_tapir_command("CreateWalls", {"elements": [ok, failed]})
+
+    result = await archicad_call_tool("elements_create_walls", {"port": 19723, "params": {"wallsData": []}})
+
+    assert result["outcome"]["failed"] == 1
+    assert result["outcome"]["failuresByCause"][0]["message"] == "bad polygon"
+
+
+def test_every_tabled_command_is_a_registered_changing_command(fake_archicad):
+    from tapir_archicad_mcp.outcome import RESULT_LIST_FIELDS
+    from tapir_archicad_mcp.tools.tool_registry import TOOL_DISCOVERY_CATALOG
+
+    by_title = {entry["title"]: entry for entry in TOOL_DISCOVERY_CATALOG.values()}
+    for command in RESULT_LIST_FIELDS:
+        assert command in by_title, command
+        assert by_title[command]["kind"] in ("write", "irreversible"), command
+
+
 @pytest.mark.asyncio
 async def test_write_response_carries_outcome(fake_archicad):
     fake_archicad.on_tapir_command(
