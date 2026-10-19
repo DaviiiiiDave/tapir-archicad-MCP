@@ -251,6 +251,7 @@ async def test_generated_create_tool_dispatches_params_and_preserves_raw_result(
         {"port": fake_archicad.port, "params": {"slabsData": []}},
     )
 
+    assert result.pop("changeLog")
     assert result == {"elements": []}
     command, parameters = fake_archicad.calls[0]
     assert command == "CreateSlabs"

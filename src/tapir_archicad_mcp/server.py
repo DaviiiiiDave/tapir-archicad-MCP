@@ -3,10 +3,12 @@ import logging
 import math
 import os
 import sys
+from pathlib import Path
 from typing import Any
 
 import tapir_archicad_mcp.model_configuration  # noqa: F401
 from tapir_archicad_mcp.app import mcp
+from tapir_archicad_mcp.change_log import default_change_log_dir
 from tapir_archicad_mcp.jobs import JobSettings
 from tapir_archicad_mcp.logging_config import setup_logging
 from tapir_archicad_mcp.middleware import BearerTokenMiddleware
@@ -86,6 +88,11 @@ def parse_args() -> argparse.Namespace:
         default=os.getenv("TAPIR_MCP_MAX_COMPLETED_JOBS", "128"),
         help="Maximum retained completed/failed jobs; oldest are evicted with their pages (default: 128).",
     )
+    parser.add_argument(
+        "--change-log", type=Path,
+        default=Path(os.environ["TAPIR_MCP_CHANGE_LOG"]) if os.getenv("TAPIR_MCP_CHANGE_LOG") else default_change_log_dir(),
+        help="Directory for the daily JSONL record of every command that changes the project (default: per-user data directory).",
+    )
     return parser.parse_args()
 
 
@@ -110,6 +117,7 @@ def main():
         job_ttl_seconds=args.job_ttl_seconds,
         max_completed_jobs=args.max_completed_jobs,
     )
+    app_module.change_log_directory = args.change_log
     sys.argv = [sys.argv[0]]
 
     logging.info(

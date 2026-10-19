@@ -83,6 +83,7 @@ You can customize the server via CLI flags or environment variables:
 | `--async-threshold-seconds` | `TAPIR_MCP_ASYNC_THRESHOLD_SECONDS` | `45` | Seconds to wait before returning a running job handle |
 | `--job-ttl-seconds` | `TAPIR_MCP_JOB_TTL_SECONDS` | `86400` | Seconds to keep finished jobs; `0` disables time-based expiry |
 | `--max-completed-jobs` | `TAPIR_MCP_MAX_COMPLETED_JOBS` | `128` | Maximum number of finished jobs to keep |
+| `--change-log` | `TAPIR_MCP_CHANGE_LOG` | per-user data directory (Windows `%APPDATA%\tapir-archicad-mcp\change-log`) | Directory for the daily JSONL record of every command that changes the project |
 
 CLI flags override environment variables.
 

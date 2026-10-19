@@ -28,6 +28,7 @@ def _clear_http_env(monkeypatch):
         "TAPIR_MCP_ASYNC_THRESHOLD_SECONDS",
         "TAPIR_MCP_JOB_TTL_SECONDS",
         "TAPIR_MCP_MAX_COMPLETED_JOBS",
+        "TAPIR_MCP_CHANGE_LOG",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -156,6 +157,19 @@ def test_job_configuration_defaults_and_environment_cli_precedence(monkeypatch):
     ])
     args = parse_args()
     assert (args.async_threshold_seconds, args.job_ttl_seconds, args.max_completed_jobs) == (5, 0, 2)
+
+
+def test_change_log_directory_default_environment_and_cli_precedence(monkeypatch, tmp_path):
+    from tapir_archicad_mcp.change_log import default_change_log_dir
+    from tapir_archicad_mcp.server import parse_args
+
+    _clear_http_env(monkeypatch)
+    monkeypatch.setattr(sys, "argv", ["server.py"])
+    assert parse_args().change_log == default_change_log_dir()
+    monkeypatch.setenv("TAPIR_MCP_CHANGE_LOG", str(tmp_path / "from-env"))
+    assert parse_args().change_log == tmp_path / "from-env"
+    monkeypatch.setattr(sys, "argv", ["server.py", "--change-log", str(tmp_path / "from-cli")])
+    assert parse_args().change_log == tmp_path / "from-cli"
 
 
 @pytest.mark.parametrize("flag,value", [

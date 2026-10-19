@@ -367,6 +367,7 @@ async def test_irreversible_requires_confirm(fake_archicad):
 
     result = await archicad_call_tool("project_save_project", {"port": 19723, "confirm": True})
 
+    assert result.pop("changeLog")
     assert result == {}
     assert [command for command, _ in fake_archicad.calls] == ["SaveProject"]
 

@@ -18,11 +18,12 @@ from multiconn_archicad.errors import AddOnCommandUnavailable, APIErrorBase
 from pydantic import ValidationError
 
 from tapir_archicad_mcp.app import mcp
-from tapir_archicad_mcp.context import job_store_instance, multi_conn_instance
-from tapir_archicad_mcp.jobs import JobStore
+from tapir_archicad_mcp.context import change_log_instance, job_store_instance, multi_conn_instance
+from tapir_archicad_mcp.jobs import JobStore, arguments_preview
 from tapir_archicad_mcp.images import extract_image, image_content, to_tool_result
 from tapir_archicad_mcp.outcome import summarize_execution_results
 from tapir_archicad_mcp.pagination import PaginationRequest, prepare_result
+from tapir_archicad_mcp.project_identity import project_fingerprint
 from tapir_archicad_mcp.request_lifecycle import DispatchLifecycle
 from tapir_archicad_mcp.validation_errors import format_validation_error
 from tapir_archicad_mcp.tools.custom.models import (
@@ -119,10 +120,10 @@ def _build_ready_instance(port: int, header: ConnHeader) -> ReadyInstance:
 
     if isinstance(project_id, TeamworkProjectID):
         project_type = "teamwork"
-        project_path = f"teamwork://{project_id.serverAddress}/{project_id.projectPath}"
+        project_path = project_fingerprint(project_id)
     elif isinstance(project_id, SoloProjectID):
         project_type = "solo"
-        project_path = project_id.projectPath
+        project_path = project_fingerprint(project_id)
 
     tapir: TapirInfo = header.tapir_info
 
@@ -320,10 +321,17 @@ def _execute_tool(name: str, tool_entry: ToolRegistryEntry, validated_arguments:
     if tool_entry.params_model:
         call_args["params"] = validated_arguments.params
 
-    with DispatchLifecycle(name, port, job_handle):
-        result = _dispatch_command(name, tool_entry, call_args, port)
-    if tool_entry.kind != "read":
+    changes_project = tool_entry.kind != "read"
+    try:
+        with DispatchLifecycle(name, port, job_handle):
+            result = _dispatch_command(name, tool_entry, call_args, port)
+    except Exception as e:
+        if changes_project:
+            _record_change(name, tool_entry, validated_arguments, conn_header, job_handle, None, error=str(e))
+        raise
+    if changes_project:
         result = _with_outcome(name, result)
+        result = _record_change(name, tool_entry, validated_arguments, conn_header, job_handle, result)
     if tool_entry.pagination_field is None:
         return result
     request = _pagination_request(name, tool_entry, validated_arguments, conn_header)
@@ -338,6 +346,38 @@ def _with_outcome(name: str, result: Any) -> Any:
         log.warning(f"Response of {name} already has an 'outcome' key; not adding the execution summary.")
         return result
     return {**result, "outcome": summary}
+
+
+def _record_change(
+    name: str,
+    tool_entry: ToolRegistryEntry,
+    validated_arguments: Any,
+    conn_header: ConnHeader,
+    job_handle: str,
+    result: Any,
+    error: str | None = None,
+) -> Any:
+    """Write the change-log line. Returns the result, with the log path (or the reason it failed) added."""
+    try:
+        entry = {
+            "port": validated_arguments.port,
+            "project": project_fingerprint(getattr(conn_header, "archicad_id", None)),
+            "command": name,
+            "kind": tool_entry.kind,
+            "argumentsPreview": arguments_preview(
+                validated_arguments.model_dump(mode="json", by_alias=True, exclude_none=True)
+            ),
+            "status": "failed" if error is not None else "completed",
+            "outcome": result.get("outcome") if isinstance(result, dict) else None,
+            "error": error,
+            "jobHandle": job_handle,
+        }
+        path = change_log_instance.get().record(entry)
+    except Exception as e:
+        # The command has already run in Archicad: a logging problem must not hide its result.
+        log.error(f"Could not write the change log for {name}: {e}")
+        return {**result, "changeLogError": str(e)} if isinstance(result, dict) else result
+    return {**result, "changeLog": str(path)} if isinstance(result, dict) else result
 
 
 def _dispatch_command(name: str, tool_entry: ToolRegistryEntry, call_args: dict, port: int) -> Any:

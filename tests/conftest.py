@@ -6,7 +6,8 @@ import pytest
 from multiconn_archicad import ArchicadLocation, Port, ProductInfo, SoloProjectID
 
 import tapir_archicad_mcp.model_configuration  # noqa: F401
-from tapir_archicad_mcp.context import job_store_instance, multi_conn_instance
+from tapir_archicad_mcp.change_log import ChangeLog
+from tapir_archicad_mcp.context import change_log_instance, job_store_instance, multi_conn_instance
 from tapir_archicad_mcp.jobs import JobSettings, JobStore
 
 
@@ -18,6 +19,14 @@ def job_store(monkeypatch, job_clock):
     yield store
     store.shutdown()
     job_store_instance.clear()
+
+
+@pytest.fixture(autouse=True)
+def change_log(tmp_path):
+    log = ChangeLog(tmp_path / "change-log")
+    change_log_instance.set(log)
+    yield log
+    change_log_instance.clear()
 
 
 @pytest.fixture
