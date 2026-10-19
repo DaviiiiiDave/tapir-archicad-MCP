@@ -3,7 +3,7 @@ stages:
   3: "Command classification and read tool (Task 1-2)"
   4: "Error hygiene, catalog search, response envelope (Task 3-5)"
   5: "Images and change log (Task 6-7)"
-current: 2
+current: 4
 ---
 
 # Runtime Hygiene Implementation Plan (Plan 1 of 4)

@@ -22,6 +22,7 @@ from tapir_archicad_mcp.context import job_store_instance, multi_conn_instance
 from tapir_archicad_mcp.jobs import JobStore
 from tapir_archicad_mcp.pagination import PaginationRequest, prepare_result
 from tapir_archicad_mcp.request_lifecycle import DispatchLifecycle
+from tapir_archicad_mcp.validation_errors import format_validation_error
 from tapir_archicad_mcp.tools.custom.models import (
     CommandOverview,
     CommandSchema,
@@ -269,7 +270,7 @@ async def _run_command(name: str, arguments: dict, *, read_only: bool) -> dict:
         validated_arguments = tool_entry.arguments_model.model_validate(arguments)
     except ValidationError as e:
         log.error(f"Validation error for arguments of {name}: {e}")
-        raise ToolError(f"Invalid arguments provided for tool '{name}'. Validation details: {e}") from e
+        raise ToolError(format_validation_error(name, e)) from e
     if tool_entry.kind == "irreversible" and not validated_arguments.confirm:
         raise ToolError(
             f"'{name}' is irreversible: it cannot be undone in Archicad or it affects other users. "
