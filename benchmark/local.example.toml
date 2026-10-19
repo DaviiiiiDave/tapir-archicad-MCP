@@ -1,0 +1,15 @@
+# Copy to benchmark/local.toml (git-ignored) and adjust. %VAR% and $VAR are expanded.
+
+# Project copies, arm environments, streams and ledgers. Keep it out of OneDrive and other synced folders.
+data_dir = "%LOCALAPPDATA%/tapir-mcp-bench"
+
+claude_exe = "%LOCALAPPDATA%/Microsoft/WinGet/Links/claude.exe"
+
+# The German base project. The harness only ever copies it, it never opens this file.
+base_project = "%USERPROFILE%/Desktop/Benchmark.pln"
+
+# archicad-addon/Test/TestProject.pla from ENZYME-APD/tapir-archicad-automation at commit ce1623e.
+international_source = "%LOCALAPPDATA%/tapir-mcp-bench/sources/TestProject.pla"
+
+# A checkout of this repository; the arms are exported from its git refs.
+repo_root = "%USERPROFILE%/src/tapir-archicad-MCP"

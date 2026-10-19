@@ -1,0 +1,26 @@
+# Benchmark settings shared by every machine. Machine paths live in local.toml (see local.example.toml).
+
+# The dedicated Archicad 29 instance ("Benchmark"). The harness and the proxy refuse every other port.
+bench_port = 19725
+runs_per_cell = 3
+# Kill switch per run, not an expectation. A run that hits it counts as failed.
+run_timeout_s = 1800
+
+# Full model IDs; aliases resolve differently between CLI versions.
+[models]
+haiku = "claude-haiku-5-5"
+sonnet = "claude-sonnet-5-5"
+
+# --max-budget-usd per run. Kill switch, not an expectation.
+[budgets_usd]
+haiku = 2.0
+sonnet = 6.0
+
+# A: upstream v0.6.5. B: plan 1 (runtime hygiene), final commit after its review.
+[arms.A]
+ref = "v0.6.5"
+change_log_flag = false
+
+[arms.B]
+ref = "d7a8a67"
+change_log_flag = true
