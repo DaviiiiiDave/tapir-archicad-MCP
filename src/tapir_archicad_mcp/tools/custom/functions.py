@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from tapir_archicad_mcp.app import mcp
 from tapir_archicad_mcp.context import job_store_instance, multi_conn_instance
 from tapir_archicad_mcp.jobs import JobStore
+from tapir_archicad_mcp.outcome import summarize_execution_results
 from tapir_archicad_mcp.pagination import PaginationRequest, prepare_result
 from tapir_archicad_mcp.request_lifecycle import DispatchLifecycle
 from tapir_archicad_mcp.validation_errors import format_validation_error
@@ -320,10 +321,22 @@ def _execute_tool(name: str, tool_entry: ToolRegistryEntry, validated_arguments:
 
     with DispatchLifecycle(name, port, job_handle):
         result = _dispatch_command(name, tool_entry, call_args, port)
+    if tool_entry.kind != "read":
+        result = _with_outcome(name, result)
     if tool_entry.pagination_field is None:
         return result
     request = _pagination_request(name, tool_entry, validated_arguments, conn_header)
     return prepare_result(result, request, job_handle.removeprefix("job:"))
+
+
+def _with_outcome(name: str, result: Any) -> Any:
+    summary = summarize_execution_results(result)
+    if summary is None:
+        return result
+    if "outcome" in result:
+        log.warning(f"Response of {name} already has an 'outcome' key; not adding the execution summary.")
+        return result
+    return {**result, "outcome": summary}
 
 
 def _dispatch_command(name: str, tool_entry: ToolRegistryEntry, call_args: dict, port: int) -> Any:
