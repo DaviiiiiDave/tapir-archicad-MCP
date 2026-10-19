@@ -35,6 +35,7 @@ register_tool_for_dispatch(
         "folders along the path, if they do not exist."
     ),
     params_model=CreateAttributeFoldersParameters,
+    kind="write",
 )
 
 
@@ -58,6 +59,7 @@ register_tool_for_dispatch(
         "identifier has to be provided."
     ),
     params_model=DeleteAttributeFoldersParameters,
+    kind="irreversible",
 )
 
 
@@ -74,6 +76,7 @@ register_tool_for_dispatch(
     title="DeleteAttributes",
     description="Deletes attributes.",
     params_model=DeleteAttributesParameters,
+    kind="irreversible",
 )
 
 
@@ -88,6 +91,7 @@ register_tool_for_dispatch(
     title="GetActivePenTables",
     description="Returns the model view and layout book pen table identifiers.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -111,6 +115,7 @@ register_tool_for_dispatch(
         "folder will be returned"
     ),
     params_model=GetAttributeFolderStructureParameters,
+    kind="read",
 )
 
 
@@ -127,6 +132,7 @@ register_tool_for_dispatch(
     title="GetAttributeFolders",
     description="Returns the detailed attribute folders identified by their Ids.",
     params_model=GetAttributeFoldersParameters,
+    kind="read",
 )
 
 
@@ -143,6 +149,7 @@ register_tool_for_dispatch(
     title="GetAttributesIndices",
     description="Returns the requested indices and guids of attributes.",
     params_model=GetAttributesIndicesParameters,
+    kind="read",
 )
 
 
@@ -160,6 +167,7 @@ register_tool_for_dispatch(
     title="GetProfileAttributePreview",
     description="Returns the preview image of each requested profile attribute in a base64 string format.",
     params_model=GetProfileAttributePreviewParameters,
+    kind="read",
 )
 
 
@@ -177,6 +185,7 @@ register_tool_for_dispatch(
     title="MoveAttributesAndFolders",
     description="Moves attributes and attribute folders.",
     params_model=MoveAttributesAndFoldersParameters,
+    kind="write",
 )
 
 
@@ -194,4 +203,5 @@ register_tool_for_dispatch(
     title="RenameAttributeFolders",
     description="Rename attribute folder.",
     params_model=RenameAttributeFoldersParameters,
+    kind="write",
 )

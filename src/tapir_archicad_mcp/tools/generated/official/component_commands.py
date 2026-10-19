@@ -28,6 +28,7 @@ register_tool_for_dispatch(
         "as the given elements."
     ),
     params_model=GetComponentsOfElementsParameters,
+    kind="read",
 )
 
 
@@ -47,4 +48,5 @@ register_tool_for_dispatch(
     title="GetPropertyValuesOfElementComponents",
     description="Returns the property values of the components for the given property.",
     params_model=GetPropertyValuesOfElementComponentsParameters,
+    kind="read",
 )

@@ -23,6 +23,7 @@ register_tool_for_dispatch(
     title="CreateLayout",
     description="Creates a new layout.",
     params_model=CreateLayoutParameters,
+    kind="write",
 )
 
 
@@ -39,6 +40,7 @@ register_tool_for_dispatch(
     title="CreateLayoutSubset",
     description="Creates a new layout subset.",
     params_model=CreateLayoutSubsetParameters,
+    kind="write",
 )
 
 
@@ -55,6 +57,7 @@ register_tool_for_dispatch(
     title="GetLayoutSettings",
     description="Returns the parameters (settings) of the given layout.",
     params_model=GetLayoutSettingsParameters,
+    kind="read",
 )
 
 
@@ -71,4 +74,5 @@ register_tool_for_dispatch(
     title="SetLayoutSettings",
     description="Sets the parameters (settings) of the given layout.",
     params_model=SetLayoutSettingsParameters,
+    kind="write",
 )

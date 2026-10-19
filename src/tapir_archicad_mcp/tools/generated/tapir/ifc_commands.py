@@ -31,6 +31,7 @@ register_tool_for_dispatch(
     description="Retrieves the elements by the given IFC identifiers.",
     params_model=GetElementsByIFCIdsParameters,
     pagination_field="elementsByIFCIds",
+    kind="read",
 )
 
 
@@ -51,6 +52,7 @@ register_tool_for_dispatch(
         "IFCFileOperation as translatorName."
     ),
     params_model=None,
+    kind="read",
 )
 
 
@@ -67,6 +69,7 @@ register_tool_for_dispatch(
     title="GetIFCIdsOfElements",
     description="Retrieves the IFC identifiers of the given elements.",
     params_model=GetIFCIdsOfElementsParameters,
+    kind="read",
 )
 
 
@@ -84,6 +87,7 @@ register_tool_for_dispatch(
     title="GetIFCPropertiesOfElements",
     description="Retrieves the IFC properties of the given elements.",
     params_model=GetIFCPropertiesOfElementsParameters,
+    kind="read",
 )
 
 
@@ -100,6 +104,7 @@ register_tool_for_dispatch(
     title="GetIFCTypeOfElements",
     description="Retrieves the IFC types of the given elements.",
     params_model=GetIFCTypeOfElementsParameters,
+    kind="read",
 )
 
 
@@ -122,6 +127,7 @@ register_tool_for_dispatch(
         "name the export translator to use."
     ),
     params_model=IFCFileOperationParameters,
+    kind="write",
 )
 
 
@@ -145,4 +151,5 @@ register_tool_for_dispatch(
         "properties in the given property sets. Available only in Archicad 25, 26 and 27 for now."
     ),
     params_model=SetIFCPropertiesOfElementsParameters,
+    kind="write",
 )

@@ -74,6 +74,23 @@ def _generate_imports_for_group(commands: list[dict], valid_model_names: set[str
     return f"from multiconn_archicad.models.{config.name}.commands import (\n{import_statements},\n)"
 
 
+def classify_command(name_camel: str, config: ApiSourceConfig) -> str:
+    """Returns the kind of a command, which must be listed in exactly one of the three kind sets."""
+    kinds = [
+        kind
+        for kind, names in (
+            ("read", config.read_commands),
+            ("write", config.write_commands),
+            ("irreversible", config.irreversible_commands),
+        )
+        if name_camel in names
+    ]
+    if len(kinds) != 1:
+        found = ", ".join(kinds) if kinds else "none"
+        raise ValueError(f"Command {name_camel} must be listed in exactly one kind set, found: {found}")
+    return kinds[0]
+
+
 def _generate_call_block(cmd: dict, has_params: bool, config: ApiSourceConfig) -> str:
     params_for_api_call = "params.model_dump(mode='json', by_alias=True, exclude_none=True)" if has_params else "{}"
     api_call = f'conn_header.core.{config.api_call_method}'
@@ -127,12 +144,14 @@ def _generate_tool_function_code(command: dict, valid_model_names: set[str], con
 {indent(call_block, "    ")}
 '''
 
+    kind = classify_command(command_name_camel, config)
     registration_call = f"""register_tool_for_dispatch(
     {command_name_snake},
     name="{tool_name}",
     title="{command_name_camel}",
     description={dispatch_desc},
-    params_model={param_reg_arg}{pagination_registration_arg}
+    params_model={param_reg_arg}{pagination_registration_arg},
+    kind="{kind}",
 )
 """
     return f"{function_code}\n{registration_call}".strip() + "\n"
@@ -212,6 +231,17 @@ def run_generation_for_source(config: ApiSourceConfig) -> set[str]:
     )
 
     valid_model_names = set(valid_model_names_list)
+
+    # Classify every command before touching any file, so an unclassified command leaves the tree as it was.
+    unclassified = []
+    for cmds in grouped_commands.values():
+        for cmd in cmds:
+            try:
+                classify_command(cmd["name_camel"], config)
+            except ValueError as e:
+                unclassified.append(str(e))
+    if unclassified:
+        raise SystemExit("\n".join(unclassified))
 
     # 3. Generate individual files and __init__.py
     prepare_output_directory(config.output_dir)

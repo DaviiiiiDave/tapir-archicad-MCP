@@ -32,6 +32,7 @@ register_tool_for_dispatch(
     title="ApplyFavoritesToElementDefaults",
     description="Apply the given favorites to element defaults.",
     params_model=ApplyFavoritesToElementDefaultsParameters,
+    kind="write",
 )
 
 
@@ -61,6 +62,7 @@ register_tool_for_dispatch(
         "individually."
     ),
     params_model=ApplyFavoritesToElementsParameters,
+    kind="write",
 )
 
 
@@ -78,6 +80,7 @@ register_tool_for_dispatch(
     title="CreateFavoritesFromElements",
     description="Create favorites from the given elements.",
     params_model=CreateFavoritesFromElementsParameters,
+    kind="write",
 )
 
 
@@ -94,6 +97,7 @@ register_tool_for_dispatch(
     title="DeleteFavorites",
     description="Delete existing favorites.",
     params_model=DeleteFavoritesParameters,
+    kind="irreversible",
 )
 
 
@@ -110,6 +114,7 @@ register_tool_for_dispatch(
     title="ExportFavorites",
     description="Export the project's Favorites to a .prefs file or folder.",
     params_model=ExportFavoritesParameters,
+    kind="write",
 )
 
 
@@ -126,6 +131,7 @@ register_tool_for_dispatch(
     title="GetFavoritePreviewImage",
     description="Returns the preview image of the given favorite.",
     params_model=GetFavoritePreviewImageParameters,
+    kind="read",
 )
 
 
@@ -142,6 +148,7 @@ register_tool_for_dispatch(
     title="GetFavoritesByType",
     description="Returns a list of the names of all favorites with the given element type",
     params_model=GetFavoritesByTypeParameters,
+    kind="read",
 )
 
 
@@ -158,6 +165,7 @@ register_tool_for_dispatch(
     title="ImportFavorites",
     description="Import Favorites from a .prefs file or folder into the current project.",
     params_model=ImportFavoritesParameters,
+    kind="write",
 )
 
 
@@ -174,6 +182,7 @@ register_tool_for_dispatch(
     title="RenameFavorites",
     description="Rename existing favorites.",
     params_model=RenameFavoritesParameters,
+    kind="write",
 )
 
 
@@ -191,4 +200,5 @@ register_tool_for_dispatch(
     title="UpdateFavoritesFromElements",
     description="Update existing favorites from the given elements.",
     params_model=UpdateFavoritesFromElementsParameters,
+    kind="write",
 )

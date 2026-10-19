@@ -27,4 +27,5 @@ register_tool_for_dispatch(
         "was given, then the order of the returned list is that of the given zones."
     ),
     params_model=GetElementsRelatedToZonesParameters,
+    kind="read",
 )

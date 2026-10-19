@@ -21,6 +21,7 @@ register_tool_for_dispatch(
     title="GetAllClassificationSystems",
     description="Returns the list of available classification systems.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -38,6 +39,7 @@ register_tool_for_dispatch(
     title="GetAllClassificationsInSystem",
     description="Returns the tree of classifications in the given classification system.",
     params_model=GetAllClassificationsInSystemParameters,
+    kind="read",
 )
 
 
@@ -57,6 +59,7 @@ register_tool_for_dispatch(
     title="GetClassificationItemAvailability",
     description="Returns the ids of property definitions available for a given classification item.",
     params_model=GetClassificationItemAvailabilityParameters,
+    kind="read",
 )
 
 
@@ -71,6 +74,7 @@ register_tool_for_dispatch(
     title="GetClassificationSystemIds",
     description="Returns the list of available classification systems.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -88,6 +92,7 @@ register_tool_for_dispatch(
     title="GetClassificationSystems",
     description="Returns the details of classification systems identified by their GUIDs.",
     params_model=GetClassificationSystemsParameters,
+    kind="read",
 )
 
 
@@ -107,4 +112,5 @@ register_tool_for_dispatch(
     title="GetDetailsOfClassificationItems",
     description="Returns the details of classification items.",
     params_model=GetDetailsOfClassificationItemsParameters,
+    kind="read",
 )

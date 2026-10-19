@@ -52,6 +52,7 @@ register_tool_for_dispatch(
         "limitation)."
     ),
     params_model=ChangeDrawingLinkParameters,
+    kind="write",
 )
 
 
@@ -69,6 +70,7 @@ register_tool_for_dispatch(
     title="CloneProjectMapItemToViewMap",
     description="Clones Project Map viewpoints into the View Map, optionally into a specified folder.",
     params_model=CloneProjectMapItemToViewMapParameters,
+    kind="write",
 )
 
 
@@ -85,6 +87,7 @@ register_tool_for_dispatch(
     title="CreateDetails",
     description="Creates independent Detail databases.",
     params_model=CreateDetailsParameters,
+    kind="write",
 )
 
 
@@ -101,6 +104,7 @@ register_tool_for_dispatch(
     title="CreateDrawings",
     description="Creates Drawing elements on the specified or active layout from navigator items.",
     params_model=CreateDrawingsParameters,
+    kind="write",
 )
 
 
@@ -125,6 +129,7 @@ register_tool_for_dispatch(
         "that room."
     ),
     params_model=CreateInteriorElevationsParameters,
+    kind="write",
 )
 
 
@@ -141,6 +146,7 @@ register_tool_for_dispatch(
     title="CreateLayout",
     description="Creates Layouts and their backing master layouts.",
     params_model=CreateLayoutParameters,
+    kind="write",
 )
 
 
@@ -157,6 +163,7 @@ register_tool_for_dispatch(
     title="CreateLayoutSubset",
     description="Creates Layout Book subsets.",
     params_model=CreateLayoutSubsetParameters,
+    kind="write",
 )
 
 
@@ -173,6 +180,7 @@ register_tool_for_dispatch(
     title="CreateSections",
     description="Creates Section elements on the floor plan.",
     params_model=CreateSectionsParameters,
+    kind="write",
 )
 
 
@@ -189,6 +197,7 @@ register_tool_for_dispatch(
     title="CreateViewMapFolder",
     description="Creates a new folder in the View Map.",
     params_model=CreateViewMapFolderParameters,
+    kind="write",
 )
 
 
@@ -210,6 +219,7 @@ register_tool_for_dispatch(
         "items."
     ),
     params_model=CreateViewsInViewMapParameters,
+    kind="write",
 )
 
 
@@ -226,6 +236,7 @@ register_tool_for_dispatch(
     title="CreateWorksheets",
     description="Creates independent Worksheet databases.",
     params_model=CreateWorksheetsParameters,
+    kind="write",
 )
 
 
@@ -242,6 +253,7 @@ register_tool_for_dispatch(
     title="FitInWindow",
     description="Zooms to the given elements or fits everything in the window.",
     params_model=FitInWindowParameters,
+    kind="read",
 )
 
 
@@ -261,6 +273,7 @@ register_tool_for_dispatch(
     title="GetDatabaseIdFromNavigatorItemId",
     description="Gets the ID of the database associated with the supplied navigator item id",
     params_model=GetDatabaseIdFromNavigatorItemIdParameters,
+    kind="read",
 )
 
 
@@ -275,6 +288,7 @@ register_tool_for_dispatch(
     title="GetLayoutCustomScheme",
     description="Gets the Layout Info Panel custom field definitions (name and key) from Book Settings.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -291,6 +305,7 @@ register_tool_for_dispatch(
     title="GetLayoutSettings",
     description="Gets settings of layouts, including Layout Info Panel custom data fields.",
     params_model=GetLayoutSettingsParameters,
+    kind="read",
 )
 
 
@@ -305,6 +320,7 @@ register_tool_for_dispatch(
     title="GetModelViewOptions",
     description="Gets all model view options",
     params_model=None,
+    kind="read",
 )
 
 
@@ -321,6 +337,7 @@ register_tool_for_dispatch(
     title="GetNavigatorItemTree",
     description="Returns the full navigator item tree for the specified map.",
     params_model=GetNavigatorItemTreeParameters,
+    kind="read",
 )
 
 
@@ -337,6 +354,7 @@ register_tool_for_dispatch(
     title="GetView2DTransformations",
     description="Get zoom and rotation of 2D views",
     params_model=GetView2DTransformationsParameters,
+    kind="read",
 )
 
 
@@ -353,6 +371,7 @@ register_tool_for_dispatch(
     title="GetViewSettings",
     description="Gets the view settings of navigator items",
     params_model=GetViewSettingsParameters,
+    kind="read",
 )
 
 
@@ -371,6 +390,7 @@ register_tool_for_dispatch(
         "Performs a publish operation on the currently opened project. Only the given publisher set will be published."
     ),
     params_model=PublishPublisherSetParameters,
+    kind="irreversible",
 )
 
 
@@ -387,6 +407,7 @@ register_tool_for_dispatch(
     title="RenameNavigatorItem",
     description="Renames a navigator item or changes its ID.",
     params_model=RenameNavigatorItemParameters,
+    kind="write",
 )
 
 
@@ -403,6 +424,7 @@ register_tool_for_dispatch(
     title="Set3DCutPlanes",
     description="Sets the 3D cut planes.",
     params_model=Set3DCutPlanesParameters,
+    kind="write",
 )
 
 
@@ -419,6 +441,7 @@ register_tool_for_dispatch(
     title="SetLayoutSettings",
     description="Sets settings of layouts, including Layout Info Panel custom data fields.",
     params_model=SetLayoutSettingsParameters,
+    kind="write",
 )
 
 
@@ -435,6 +458,7 @@ register_tool_for_dispatch(
     title="SetViewRotation",
     description="Set the rotation angle of 2D views via their floor plan database.",
     params_model=SetViewRotationParameters,
+    kind="write",
 )
 
 
@@ -451,6 +475,7 @@ register_tool_for_dispatch(
     title="SetViewSettings",
     description="Sets the view settings of navigator items",
     params_model=SetViewSettingsParameters,
+    kind="write",
 )
 
 
@@ -467,4 +492,5 @@ register_tool_for_dispatch(
     title="UpdateDrawings",
     description="Performs a drawing update on the given elements.",
     params_model=UpdateDrawingsParameters,
+    kind="write",
 )

@@ -52,7 +52,9 @@ def worker(monkeypatch):
             raise RuntimeError("Test worker was not released.")
         return {"dispatchCount": len(calls)}
 
-    register_tool_for_dispatch(execute, name=COMMAND, title="Test", description="Test-only blocking command")
+    register_tool_for_dispatch(
+        execute, name=COMMAND, title="Test", description="Test-only blocking command", kind="write"
+    )
     fake = SimpleNamespace(active={19723: object()}, open_port_headers={})
     monkeypatch.setattr("tapir_archicad_mcp.app.MultiConn", lambda: fake)
     monkeypatch.setattr("tapir_archicad_mcp.app.job_settings", JobSettings(async_threshold_seconds=0.5))
@@ -253,7 +255,9 @@ async def test_immediate_errors_expose_expected_messages_and_hide_unexpected_det
     def execute(conn_header):
         raise error
 
-    register_tool_for_dispatch(execute, name=COMMAND, title="Test", description="Test-only failing command")
+    register_tool_for_dispatch(
+        execute, name=COMMAND, title="Test", description="Test-only failing command", kind="write"
+    )
     async with Client(mcp) as client:
         result = await client.call_tool("archicad_call_tool", ARGUMENTS)
         assert result.is_error and expected in result.content[0].text
@@ -302,7 +306,7 @@ def execute(conn_header):
         raise RuntimeError("Test worker was not released")
     return {"dispatchCount": len(calls)}
 
-register_tool_for_dispatch(execute, name="test_job_transport_command", title="Test", description="Test")
+register_tool_for_dispatch(execute, name="test_job_transport_command", title="Test", description="Test", kind="write")
 app.MultiConn = lambda: SimpleNamespace(active={19723: object()}, open_port_headers={})
 app.job_settings = JobSettings(async_threshold_seconds=2)
 @app.mcp.tool(name="test_release_worker")

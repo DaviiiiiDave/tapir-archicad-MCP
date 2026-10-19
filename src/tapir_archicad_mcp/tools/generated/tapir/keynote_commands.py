@@ -29,6 +29,7 @@ register_tool_for_dispatch(
         "Creates keynote folders under the given parent folders (or under the root folder). Available from Archicad 28."
     ),
     params_model=CreateKeynoteFoldersParameters,
+    kind="write",
 )
 
 
@@ -47,6 +48,7 @@ register_tool_for_dispatch(
         "Creates keynote items in the given parent folders (or in the root folder). Available from Archicad 28."
     ),
     params_model=CreateKeynoteItemsParameters,
+    kind="write",
 )
 
 
@@ -65,6 +67,7 @@ register_tool_for_dispatch(
         "Creates Label elements that reference the given keynote items via autotext. Available from Archicad 28."
     ),
     params_model=CreateKeynoteLabelsParameters,
+    kind="write",
 )
 
 
@@ -81,6 +84,7 @@ register_tool_for_dispatch(
     title="DeleteKeynoteFolders",
     description="Deletes the given keynote folders including their content. Available from Archicad 28.",
     params_model=DeleteKeynoteFoldersParameters,
+    kind="irreversible",
 )
 
 
@@ -97,6 +101,7 @@ register_tool_for_dispatch(
     title="DeleteKeynoteItems",
     description="Deletes the given keynote items. Available from Archicad 28.",
     params_model=DeleteKeynoteItemsParameters,
+    kind="irreversible",
 )
 
 
@@ -119,6 +124,7 @@ register_tool_for_dispatch(
         "reference the fields of a keynote item. Available from Archicad 28."
     ),
     params_model=GetKeynoteAutoTextsParameters,
+    kind="read",
 )
 
 
@@ -139,6 +145,7 @@ register_tool_for_dispatch(
         "output; the top-level folders and items are returned directly. Available from Archicad 28."
     ),
     params_model=None,
+    kind="read",
 )
 
 
@@ -155,6 +162,7 @@ register_tool_for_dispatch(
     title="ModifyKeynoteFolders",
     description="Modifies the key, title or reference of the given keynote folders. Available from Archicad 28.",
     params_model=ModifyKeynoteFoldersParameters,
+    kind="write",
 )
 
 
@@ -173,4 +181,5 @@ register_tool_for_dispatch(
         "Modifies the key, title, description or reference of the given keynote items. Available from Archicad 28."
     ),
     params_model=ModifyKeynoteItemsParameters,
+    kind="write",
 )

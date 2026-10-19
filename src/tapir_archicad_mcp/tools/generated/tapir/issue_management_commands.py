@@ -28,6 +28,7 @@ register_tool_for_dispatch(
     title="AddCommentToIssue",
     description="Adds a new comment to the specified issue.",
     params_model=AddCommentToIssueParameters,
+    kind="write",
 )
 
 
@@ -44,6 +45,7 @@ register_tool_for_dispatch(
     title="AttachElementsToIssue",
     description="Attaches elements to the specified issue.",
     params_model=AttachElementsToIssueParameters,
+    kind="write",
 )
 
 
@@ -60,6 +62,7 @@ register_tool_for_dispatch(
     title="CreateIssue",
     description="Creates a new issue.",
     params_model=CreateIssueParameters,
+    kind="write",
 )
 
 
@@ -76,6 +79,7 @@ register_tool_for_dispatch(
     title="DeleteIssue",
     description="Deletes the specified issue.",
     params_model=DeleteIssueParameters,
+    kind="irreversible",
 )
 
 
@@ -92,6 +96,7 @@ register_tool_for_dispatch(
     title="DetachElementsFromIssue",
     description="Detaches elements from the specified issue.",
     params_model=DetachElementsFromIssueParameters,
+    kind="write",
 )
 
 
@@ -108,6 +113,7 @@ register_tool_for_dispatch(
     title="ExportIssuesToBCF",
     description="Exports specified issues to a BCF file.",
     params_model=ExportIssuesToBCFParameters,
+    kind="write",
 )
 
 
@@ -124,6 +130,7 @@ register_tool_for_dispatch(
     title="GetCommentsFromIssue",
     description="Retrieves comments information from the specified issue.",
     params_model=GetCommentsFromIssueParameters,
+    kind="read",
 )
 
 
@@ -141,6 +148,7 @@ register_tool_for_dispatch(
     title="GetElementsAttachedToIssue",
     description="Retrieves attached elements of the specified issue, filtered by attachment type.",
     params_model=GetElementsAttachedToIssueParameters,
+    kind="read",
 )
 
 
@@ -161,6 +169,7 @@ register_tool_for_dispatch(
     description="Retrieves information about existing issues.",
     params_model=None,
     pagination_field="issues",
+    kind="read",
 )
 
 
@@ -177,4 +186,5 @@ register_tool_for_dispatch(
     title="ImportIssuesFromBCF",
     description="Imports issues from the specified BCF file.",
     params_model=ImportIssuesFromBCFParameters,
+    kind="write",
 )

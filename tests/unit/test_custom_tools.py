@@ -154,8 +154,10 @@ def test_reregistered_command_keeps_discovery_and_runtime_models_in_sync():
         pass
 
     name = "test_reregistered_command"
-    register_tool_for_dispatch(without_params, name=name, title="Before", description="Before")
-    register_tool_for_dispatch(with_params, name=name, title="After", description="After", params_model=Params)
+    register_tool_for_dispatch(without_params, name=name, title="Before", description="Before", kind="write")
+    register_tool_for_dispatch(
+        with_params, name=name, title="After", description="After", params_model=Params, kind="write"
+    )
 
     runtime_schema = get_tool_entry(name).arguments_model.model_json_schema()
     discovery_schema = archicad_get_command_schema(name).input_schema
@@ -184,6 +186,7 @@ async def test_union_parameter_models_validate_and_dispatch(fake_archicad):
         title="Union",
         description="Union parameters",
         params_model=FirstParams | SecondParams,
+        kind="write",
     )
 
     result = await archicad_call_tool(name, {"port": 19723, "params": {"second": "value"}})
@@ -292,7 +295,7 @@ def test_broken_instance_does_not_block_healthy_one(set_multi_conn):
 @pytest.mark.asyncio
 async def test_call_tool_intercepts_addon_unavailable(set_multi_conn):
     mock_func = Mock(side_effect=AddOnCommandUnavailable("Unknown Add-On command."))
-    register_tool_for_dispatch(mock_func, name="test_cmd", title="T", description="D")
+    register_tool_for_dispatch(mock_func, name="test_cmd", title="T", description="D", kind="write")
     set_multi_conn({19723: make_header()})
 
     with pytest.raises(ToolError, match="not available in the installed Tapir Add-On"):

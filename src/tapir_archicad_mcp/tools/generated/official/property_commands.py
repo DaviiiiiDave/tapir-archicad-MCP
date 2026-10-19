@@ -33,6 +33,7 @@ register_tool_for_dispatch(
         "be used to filter the results based on the type of the property group (Built-in or User Defined)."
     ),
     params_model=GetAllPropertyGroupIdsParameters,
+    kind="read",
 )
 
 
@@ -59,6 +60,7 @@ register_tool_for_dispatch(
     ),
     params_model=GetAllPropertyIdsParameters,
     pagination_field="propertyIds",
+    kind="read",
 )
 
 
@@ -82,6 +84,7 @@ register_tool_for_dispatch(
         "filter the results based on the type of the property (Built-in or User Defined)."
     ),
     params_model=GetAllPropertyIdsOfElementsParameters,
+    kind="read",
 )
 
 
@@ -104,6 +107,7 @@ register_tool_for_dispatch(
     ),
     params_model=None,
     pagination_field="properties",
+    kind="read",
 )
 
 
@@ -121,6 +125,7 @@ register_tool_for_dispatch(
     title="GetDetailsOfProperties",
     description="Returns the details of property definitions.",
     params_model=GetDetailsOfPropertiesParameters,
+    kind="read",
 )
 
 
@@ -140,6 +145,7 @@ register_tool_for_dispatch(
     title="GetPropertyDefinitionAvailability",
     description="Returns the ids of classification items a given property definition is available for.",
     params_model=GetPropertyDefinitionAvailabilityParameters,
+    kind="read",
 )
 
 
@@ -156,6 +162,7 @@ register_tool_for_dispatch(
     title="GetPropertyGroups",
     description="Returns the details of property groups.",
     params_model=GetPropertyGroupsParameters,
+    kind="read",
 )
 
 
@@ -172,4 +179,5 @@ register_tool_for_dispatch(
     title="GetPropertyIds",
     description="Returns the identifiers of property definitions for the requested property names.",
     params_model=GetPropertyIdsParameters,
+    kind="read",
 )

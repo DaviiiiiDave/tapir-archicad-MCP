@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Callable
 from types import UnionType
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from mcp.server.mcpserver.exceptions import ToolError
 from multiconn_archicad.constants import DEFAULT_PORT_RANGE
@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 
 
 ModelOrUnion = Optional[type | UnionType | type(Union)]
+CommandKind = Literal["read", "write", "irreversible"]
 
 
 class ToolRegistryEntry(BaseModel):
@@ -22,6 +23,7 @@ class ToolRegistryEntry(BaseModel):
     params_model: ModelOrUnion = None
     arguments_model: type[BaseModel]
     pagination_field: str | None = None
+    kind: CommandKind
 
 
 TOOL_CALLABLE_REGISTRY: dict[str, ToolRegistryEntry] = {}
@@ -66,6 +68,8 @@ def register_tool_for_dispatch(
     description: str,
     params_model: ModelOrUnion = None,
     pagination_field: str | None = None,
+    *,
+    kind: CommandKind,
 ):
     """
     Orchestrates the registration of a tool, populating both the internal
@@ -80,12 +84,14 @@ def register_tool_for_dispatch(
         params_model=params_model,
         arguments_model=arguments_model,
         pagination_field=pagination_field,
+        kind=kind,
     )
 
     TOOL_DISCOVERY_CATALOG[name] = {
         "name": name,
         "title": title,
         "description": description,
+        "kind": kind,
     }
     log.debug(f"Registered tool: {name}")
 
