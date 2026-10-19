@@ -4,7 +4,7 @@ stages:
   4: "Fixtures: Archicad access, oracle, seeding (Task 4-5)"
   5: "Tasks, scoring, runner, report, pilot (Task 6-7)"
   6: "Baseline round, arms A and B (Task 8)"
-current: 1
+current: 2
 ---
 
 # Benchmark Harness and Baseline Implementation Plan (Plan 2 of 4)
@@ -25,7 +25,7 @@ current: 1
 - Fire-rating properties. German template: custom `Allgemeine Werte › Feuerwiderstandsklasse 13501-2` (String, Single) and `… 4102-2` (enumeration, availability by classification), plus built-in `Fenster/Tür › Brandschutz`. TestProject.pla (recorded outputs, commit ce1623e of ENZYME-APD/tapir-archicad-automation): custom `GENERAL RATINGS › Fire Resistance Rating`.
 - Tapir offers CreateWalls, CreateDoors, CreateLayers (`isLocked`), SetDetailsOfElements (`layerIndex`), LockElements, SaveAsModuleFile, CreateHotlinkNodes, CreateHotlinkInstances, OpenProject and SaveProject. Door details carry `ownerElementId`. **No command creates curtain walls.**
 - The official `SetPropertyValuesOfElements` accepts `status: "userUndefined"` (multiconn `models/official/types.py`).
-- Claude Code headless with `--setting-sources project` from an empty cwd runs no hooks and loads no plugins. It **still loads the user `~/.claude/CLAUDE.md`**: a canary quoted its headings, and its thinking adopted the persona. A trivial prompt cost 5,843 input tokens. With `CLAUDE_CONFIG_DIR` pointing at an empty directory the CLI answers "Not logged in". A separate config directory with its own login therefore isolates the runs.
+- Claude Code headless with `--setting-sources project` from an empty cwd runs no hooks and loads no plugins. It **still loads the user `~/.claude/CLAUDE.md`**: a canary quoted its headings, and its thinking adopted the persona. A trivial prompt cost 5,843 input tokens. Adding `--settings '{"claudeMdExcludes": ["**/CLAUDE.md"]}'` removes it (measured 2026-10-20). The context probe then lists only `# currentDate`, the date reminder Claude Code always adds, and "Reply with OK" costs 196 input tokens. The runs therefore use Dave's normal login; no separate config directory is needed.
 - stream-json emits the same assistant message once per content block, each time with identical `usage`. `rate_limit_event.rate_limit_info.status` was `"allowed"`. `result` carries `subtype`, `is_error`, `num_turns`, `total_cost_usd`, `usage`, and `modelUsage[<model>].contextWindow` (200000 for Haiku). Thinking is on by default.
 - Upstream tag `v0.6.5` (commit e04fc0e) already supports `--transport streamable-http`.
 
@@ -34,11 +34,10 @@ current: 1
 1. **Temperature.** Claude Code cannot set it. Every run uses the CLI default sampling and default thinking, identical for all arms and models. This reads spec §7's "fixed temperature" as "the same for every run".
 2. **Arm C is not part of this plan.** This round reports B against A. The §7 thresholds (C against A) are computed once Plans 3 and 4 add arm C, and the report marks them as pending until then.
 3. **Manual fixture steps (Dave):**
-   - a one-time `/login` in the benchmark config directory (before Task 3's live step);
    - one curtain wall with at least 8 door panels on story EG in `Benchmark.pln`, saved (before Task 4);
    - possibly opening TestProject.pla once and saving it as `.pln`, if OpenProject cannot open a `.pla` without a dialog (Task 5 measures this).
 4. **Prompts name the port** (19725), and the proxy blocks calls to any other port. Discovery also shows Dave's working instances, and a write there must be impossible. The rule is the same for all arms.
-5. **Models are pinned by full ID:** `claude-haiku-5-5` and `claude-sonnet-5-5`. On this CLI the alias `haiku` resolved to `claude-haiku-4-5-20251001`, so aliases are not used. Pre-flight checks that the init event reports exactly these IDs.
+5. **Models are pinned by full ID:** `claude-haiku-5-5` and `claude-sonnet-5-5`. On this CLI the alias `haiku` resolved to `claude-haiku-4-5-20251001`, so aliases are not used. `claude-haiku-5-5` is accepted (init and `modelUsage` report it, measured 2026-10-20). Pre-flight checks that the init event reports exactly these IDs.
 6. **Kill switches per run** (parameters, not expectations): `--max-budget-usd` 2.00 for Haiku and 6.00 for Sonnet, plus a run timeout of 1800 s. A run that hits either one counts as failed.
 
 ## Global Constraints
@@ -49,8 +48,8 @@ current: 1
 - States, write probes and oracles are read through multiconn directly. Property values always come from the official API as typed values with a status, never from the server under test and never from Tapir display strings (German AC29 returns "0,075").
 - Every arm and model gets the same system prompt and the same task prompts. Models are pinned by full ID.
 - Claude Code runs only with all of the following:
-  - env `CLAUDE_CONFIG_DIR=<data_dir>/claude-config`; the run dir (empty except harness files) as cwd;
-  - `--setting-sources project --strict-mcp-config --mcp-config <file> --tools "" --allowedTools mcp__archicad --permission-mode dontAsk`;
+  - the run dir (empty except harness files) as cwd;
+  - `--setting-sources project --settings {"claudeMdExcludes": ["**/CLAUDE.md"]} --strict-mcp-config --mcp-config <file> --tools "" --allowedTools mcp__archicad --permission-mode dontAsk`;
   - `--system-prompt <SYSTEM_PROMPT> --model <full id> --no-session-persistence --output-format stream-json --verbose --max-budget-usd <cap>`;
   - the prompt on stdin.
 - Child processes are stopped only through their own PID: `taskkill /PID <pid> /T /F` on Windows, `os.killpg` elsewhere. Never by image name.
@@ -231,7 +230,7 @@ Rules:
 - Produces (`driver.py`):
   - `build_claude_command(cfg, model_alias, mcp_config: Path | None) -> list[str]`, with exactly the flags in Global Constraints and no MCP flags when `mcp_config` is `None`;
   - `write_mcp_config(path, proxy_port) -> None`, writing `{"mcpServers": {"archicad": {"type": "http", "url": "http://127.0.0.1:<proxy_port>/mcp"}}}`;
-  - `run_claude(cfg, cmd, prompt, run_dir, timeout_s) -> ClaudeOutcome(exit_code, timed_out, wall_s, stream_path)`, which writes stdout to `run_dir/stream.jsonl` and stderr to `run_dir/claude.stderr.log`, and passes env `CLAUDE_CONFIG_DIR=<data_dir>/claude-config`.
+  - `run_claude(cfg, cmd, prompt, run_dir, timeout_s) -> ClaudeOutcome(exit_code, timed_out, wall_s, stream_path)`, which writes stdout to `run_dir/stream.jsonl` and stderr to `run_dir/claude.stderr.log`.
 - Produces (`preflight.py`): `check_init(metrics, expect_server: bool, expected_model: str) -> list[str]`, which returns problems and is empty when clean. Problems:
   - any hook event;
   - non-empty `plugins`;
@@ -241,14 +240,15 @@ Rules:
   - a non-empty `permission_denials` in the result event.
 - Produces (`preflight.py`): `run_preflight(cfg) -> Path`, which writes `data_dir/preflight/<UTC timestamp>.json` and exits non-zero with the problem list when anything fails. Per model:
   - a no-MCP canary, "Reply with OK.", whose baseline tokens are recorded;
-  - the context probe below, which must answer exactly `NONE`;
+  - the context probe below, whose answer may only be `NONE` or the single line `# currentDate`;
   - per arm, an MCP canary through a proxy: "Call discovery_list_active_archicads once and reply with the number of active instances." The ledger must show that call.
 
 Context probe prompt, verbatim: `List every section heading or file name that appears in your context outside this message and the system prompt (for example CLAUDE.md files, memory indexes, skill lists, reminders). Quote each heading verbatim, one per line. If there is none, reply NONE.`
 
 - [ ] **Step 1: Write the failing tests.**
   - `test_claude_command_has_isolation_flags`: every flag and value from Global Constraints is present; `--tools` is followed by `""`; no `--bare`.
-  - `test_claude_runs_with_its_own_config_dir`
+  - `test_claude_command_excludes_every_claude_md`: the `--settings` value parses as JSON and its `claudeMdExcludes` contains `"**/CLAUDE.md"`.
+  - `test_context_probe_accepts_only_none_or_current_date`
   - `test_kill_tree_targets_own_pid_only`: with `subprocess.run` monkeypatched, on win32 the call is `["taskkill", "/PID", str(pid), "/T", "/F"]`, and no call names an image.
   - `test_timeout_marks_run_and_kills_process`: a child `python -c "import time; time.sleep(60)"` with timeout 1 → `timed_out is True` and the process no longer runs.
   - `test_server_command_passes_change_log_only_to_arms_that_accept_it`
@@ -257,12 +257,11 @@ Context probe prompt, verbatim: `List every section heading or file name that ap
 - [ ] **Step 2: Run, expect FAIL.**
 - [ ] **Step 3: Implement `arms.py`, `driver.py`, `preflight.py`** and the two CLI subcommands.
 - [ ] **Step 4: Run, expect PASS** for both suites. Commit: `feat: benchmark arms, claude driver and pre-flight`.
-- [ ] **Step 5: Manual prerequisite (Dave).** In PowerShell: `$env:CLAUDE_CONFIG_DIR = "$env:LOCALAPPDATA\tapir-mcp-bench\claude-config"; claude`, then `/login` and `/exit`. Without it, stop here.
-- [ ] **Step 6: Live.** `uv run python benchmark/cli.py setup-arms`. Expected:
+- [ ] **Step 5: Live.** `uv run python benchmark/cli.py setup-arms`. Expected:
   - two envs exist;
   - `ref.txt` reads e04fc0e… for A and d7a8a67… for B;
   - `kinds.json` has one entry per generated tool, and every value is read, write or irreversible.
-- [ ] **Step 7: Live.** `uv run python benchmark/cli.py preflight`. Expected: report `"ok": true`, no hook events, empty plugins, context probe `NONE` for both models, init model IDs equal to `bench.toml`, baseline tokens recorded.
+- [ ] **Step 6: Live.** `uv run python benchmark/cli.py preflight`. Expected: report `"ok": true`, no hook events, empty plugins, context probe `NONE` or only `# currentDate` for both models, init model IDs equal to `bench.toml`, baseline tokens recorded.
 
   If a model ID is rejected or the probe sees anything: **stop and ask Dave.** Do not change IDs or flags on your own. Commit: `test: benchmark pre-flight evidence` (only the report summary, copied to `benchmark/results/preflight-<date>.json`).
 
