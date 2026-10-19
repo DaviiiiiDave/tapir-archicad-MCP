@@ -47,6 +47,7 @@ class RunMetrics:
     rate_limit_status: str | None
     hook_events: list[str]
     init: dict
+    permission_denials: list
 
     @property
     def total_tokens(self) -> int:
@@ -169,4 +170,5 @@ def parse_stream(lines: Iterable[str]) -> RunMetrics:
         rate_limit_status=rate_limit_status,
         hook_events=hook_events,
         init=init,
+        permission_denials=list(final.get("permission_denials") or []) if final else [],
     )
