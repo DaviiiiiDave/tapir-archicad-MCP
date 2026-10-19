@@ -13,6 +13,7 @@ The server dynamically generates a comprehensive set of **191+** MCP tools from 
 -   **Progressive Tool Discovery (CLI-style):** The server uses a deterministic workflow (`archicad_list_commands` and `archicad_get_command_schema`) that allows AI agents to list available commands and fetch exact parameter schemas on demand. This avoids flooding the model's context window with large schemas.
 -   **No Heavy Machine-Learning Dependencies:** Vector-based search has been removed. The server no longer requires heavy packages like PyTorch, `faiss-cpu`, or `sentence-transformers`, dramatically reducing the package size and eliminating server startup delays.
 -   **Massive Toolset, Minimal Footprint:** Provides access to a unified toolset of **191+ commands** by merging the community Tapir API and the official Archicad JSON API.
+-   **Read, Write and Irreversible Commands:** Every command is classified (`kind` in `archicad_list_commands`). `archicad_read_tool` runs the commands that do not change the project, so a client can allow it without prompting. Commands that cannot be undone in Archicad or affect other users (saving, closing, Teamwork send/receive, publishing, deleting) only run with `"confirm": true` in the arguments.
 -   **Flexible Network Transports:** Supports `sse` (Server-Sent Events) and `streamable-http` transports in addition to standard input/output (`stdio`), allowing the server to be run on remote host configurations.
 -   **Bearer Token Authentication:** Secures HTTP endpoints when using SSE or Streamable-HTTP via an opt-in token validation middleware (`--token` flag or `TAPIR_MCP_TOKEN` environment variable).
 -   **Multi-Instance Control:** Connect to and manage multiple running Archicad instances simultaneously, targeting commands to specific instances via port numbers.
@@ -116,7 +117,7 @@ Jobs remain available across HTTP client reconnects while the server is running,
 5. The AI will execute a progressive discovery and calling loop:
    - **Step 1:** It queries `archicad_list_commands` to look up the correct command name for the requested action (identifying `elements_get_elements_by_type`).
    - **Step 2:** It calls `archicad_get_command_schema` with the target command name to retrieve the exact required JSON parameter structure.
-   - **Step 3:** It calls `archicad_call_tool` with the command name, the targeted `port`, and the required parameter payload.
+   - **Step 3:** It calls `archicad_read_tool` (commands with `kind: "read"`) or `archicad_call_tool` (all commands) with the command name, the targeted `port`, and the required parameter payload.
 
 ## How It Works
 

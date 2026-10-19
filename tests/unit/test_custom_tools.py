@@ -25,6 +25,7 @@ from tapir_archicad_mcp.tools.custom.functions import (
     archicad_call_tool,
     archicad_get_command_schema,
     archicad_list_commands,
+    archicad_read_tool,
     list_active_archicads,
 )
 from tapir_archicad_mcp.tools.custom.models import (
@@ -300,3 +301,79 @@ async def test_call_tool_intercepts_addon_unavailable(set_multi_conn):
 
     with pytest.raises(ToolError, match="not available in the installed Tapir Add-On"):
         await archicad_call_tool("test_cmd", {"port": 19723})
+
+
+# ============================================================================
+# 3. Read-only tool and irreversible commands
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_read_tool_runs_read_commands(fake_archicad):
+    fake_archicad.on_tapir_command("GetAddOnVersion", {"version": "1.7.1"})
+
+    result = await archicad_read_tool("app_get_add_on_version", {"port": 19723})
+
+    assert result == {"version": "1.7.1"}
+
+
+@pytest.mark.asyncio
+async def test_read_tool_rejects_write_commands(fake_archicad):
+    with pytest.raises(ToolError, match="archicad_call_tool"):
+        await archicad_read_tool("elements_create_walls", {"port": 19723})
+
+    assert fake_archicad.calls == []
+
+
+@pytest.mark.asyncio
+async def test_irreversible_requires_confirm(fake_archicad):
+    fake_archicad.on_tapir_command("SaveProject", {})
+
+    with pytest.raises(ToolError, match='"confirm": true'):
+        await archicad_call_tool("project_save_project", {"port": 19723})
+    assert fake_archicad.calls == []
+
+    result = await archicad_call_tool("project_save_project", {"port": 19723, "confirm": True})
+
+    assert result == {}
+    assert [command for command, _ in fake_archicad.calls] == ["SaveProject"]
+
+
+@pytest.mark.asyncio
+async def test_confirm_must_be_a_boolean(fake_archicad):
+    with pytest.raises(ToolError):
+        await archicad_call_tool("project_save_project", {"port": 19723, "confirm": "true"})
+
+    assert fake_archicad.calls == []
+
+
+def test_confirm_only_in_irreversible_schemas(fake_archicad):
+    irreversible = archicad_get_command_schema("project_save_project").input_schema
+    write = archicad_get_command_schema("elements_create_walls").input_schema
+
+    assert "confirm" in irreversible["properties"]
+    assert "confirm" not in write["properties"]
+
+
+def test_catalog_reports_kind(fake_archicad):
+    kinds = {command.name: command.kind for command in archicad_list_commands()}
+
+    assert kinds["elements_delete_elements"] == "irreversible"
+    assert kinds["elements_create_walls"] == "write"
+    assert kinds["elements_get_all_elements"] == "read"
+
+
+@pytest.mark.asyncio
+async def test_read_tool_continues_pages(fake_archicad):
+    elements = [{"elementId": {"guid": f"00000000-0000-0000-0000-{i:012d}"}} for i in range(150)]
+    fake_archicad.on_tapir_command("GetAllElements", {"elements": elements})
+    arguments = {"port": 19723, "params": {}}
+
+    first = await archicad_read_tool("elements_get_all_elements", arguments)
+    second = await archicad_read_tool(
+        "elements_get_all_elements", {**arguments, "page_token": first["next_page_token"]}
+    )
+
+    assert len(first["elements"]) == 100
+    assert len(second["elements"]) == 50
+    assert "next_page_token" not in second

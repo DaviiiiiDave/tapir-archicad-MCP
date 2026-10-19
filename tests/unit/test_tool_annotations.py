@@ -1,11 +1,12 @@
 from tapir_archicad_mcp.app import mcp
 from tapir_archicad_mcp.tools.custom import functions  # noqa: F401  registers the four MCP tools
 
-# openWorldHint differs across the read-only tools: discovery reaches out to
-# whatever Archicad instances happen to be running, while the other two read
-# the command catalogue compiled into this package.
+# openWorldHint differs across the read-only tools: discovery and the read tool
+# reach out to whatever Archicad instances happen to be running, while the
+# others read the command catalogue or job store of this package.
 READ_ONLY_TOOLS = {
     "discovery_list_active_archicads": True,
+    "archicad_read_tool": True,
     "archicad_list_commands": False,
     "archicad_get_command_schema": False,
     "archicad_get_job": False,

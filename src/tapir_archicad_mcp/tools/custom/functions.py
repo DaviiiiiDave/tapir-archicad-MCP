@@ -173,6 +173,7 @@ def archicad_list_commands() -> list[CommandOverview]:
         CommandOverview(
             name=tool["name"],
             description=tool["description"],
+            kind=tool["kind"],
         )
         for tool in TOOL_DISCOVERY_CATALOG.values()
     ]
@@ -222,7 +223,10 @@ def archicad_get_command_schema(command_name: str) -> CommandSchema:
         "and add a 'page_token' key to the 'arguments' dictionary. "
         "Long executions return status='running' and a jobHandle; retrieve them with archicad_get_job. "
         "If a response is lost or cancelled, list jobs with archicad_get_job() before retrying a write. "
-        "Cancelling this request does not cancel an admitted execution."
+        "Cancelling this request does not cancel an admitted execution. "
+        "Commands with kind='read' (see archicad_list_commands) should go through archicad_read_tool instead. "
+        "Commands with kind='irreversible' additionally need \"confirm\": true in the arguments, "
+        "which you may only set after the user agreed."
     ),
     annotations=ToolAnnotations(
         readOnlyHint=False,
@@ -233,13 +237,44 @@ def archicad_get_command_schema(command_name: str) -> CommandSchema:
 )
 async def archicad_call_tool(name: str, arguments: dict) -> dict:
     log.info(f"Executing archicad_call_tool for tool: {name}")
+    return await _run_command(name, arguments, read_only=False)
 
+
+@mcp.tool(
+    name="archicad_read_tool",
+    title="Execute Read-Only Archicad API Command",
+    description=(
+        "Executes an Archicad API command that does not change the project (kind='read' in archicad_list_commands). "
+        "Same workflow and arguments as archicad_call_tool: get the schema with 'archicad_get_command_schema' first, "
+        "pass a 'port', and follow 'next_page_token' with 'page_token'. "
+        "Commands that change the project are rejected; use archicad_call_tool for those."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
+async def archicad_read_tool(name: str, arguments: dict) -> dict:
+    log.info(f"Executing archicad_read_tool for tool: {name}")
+    return await _run_command(name, arguments, read_only=True)
+
+
+async def _run_command(name: str, arguments: dict, *, read_only: bool) -> dict:
     tool_entry = get_tool_entry(name)
+    if read_only and tool_entry.kind != "read":
+        raise ToolError(f"'{name}' changes the project. Use archicad_call_tool for commands that are not kind='read'.")
     try:
         validated_arguments = tool_entry.arguments_model.model_validate(arguments)
     except ValidationError as e:
         log.error(f"Validation error for arguments of {name}: {e}")
         raise ToolError(f"Invalid arguments provided for tool '{name}'. Validation details: {e}") from e
+    if tool_entry.kind == "irreversible" and not validated_arguments.confirm:
+        raise ToolError(
+            f"'{name}' is irreversible: it cannot be undone in Archicad or it affects other users. "
+            f'Ask the user to confirm, then call again with "confirm": true in arguments.'
+        )
 
     store = job_store_instance.get()
     port = validated_arguments.port

@@ -326,3 +326,8 @@ async def test_shutdown_stops_admission_and_drains_before_clearing(stores):
 def test_bundle_declares_job_tool():
     manifest = json.loads((Path(__file__).parents[2] / "manifest.json").read_text())
     assert "archicad_get_job" in {tool["name"] for tool in manifest["tools"]}
+
+
+def test_bundle_declares_read_tool():
+    manifest = json.loads((Path(__file__).parents[2] / "manifest.json").read_text())
+    assert "archicad_read_tool" in {tool["name"] for tool in manifest["tools"]}

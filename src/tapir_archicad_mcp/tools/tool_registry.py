@@ -5,7 +5,7 @@ from typing import Any, Literal, Optional, Union
 
 from mcp.server.mcpserver.exceptions import ToolError
 from multiconn_archicad.constants import DEFAULT_PORT_RANGE
-from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, create_model
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +31,9 @@ TOOL_DISCOVERY_CATALOG: dict[str, dict[str, Any]] = {}
 _TOOL_INPUT_SCHEMA_CACHE: dict[str, dict[str, Any]] = {}
 
 
-def _build_tool_arguments_model(name: str, params_model: ModelOrUnion, pagination_field: str | None) -> type[BaseModel]:
+def _build_tool_arguments_model(
+    name: str, params_model: ModelOrUnion, pagination_field: str | None, kind: CommandKind
+) -> type[BaseModel]:
     """Build the runtime and discovery model for one command's arguments envelope."""
     fields: dict[str, tuple[Any, Any]] = {
         "port": (
@@ -52,6 +54,18 @@ def _build_tool_arguments_model(name: str, params_model: ModelOrUnion, paginatio
         fields["page_token"] = (
             str | None,
             Field(default=None, description="Token for the next page of results (for paginated responses)."),
+        )
+
+    if kind == "irreversible":
+        fields["confirm"] = (
+            StrictBool,
+            Field(
+                default=False,
+                description=(
+                    "Must be the JSON boolean true. This command cannot be undone in Archicad or affects other "
+                    "users, so ask the user before setting it."
+                ),
+            ),
         )
 
     return create_model(
@@ -78,7 +92,7 @@ def register_tool_for_dispatch(
     if name in TOOL_CALLABLE_REGISTRY:
         log.warning(f"Tool {name} already registered. Overwriting.")
 
-    arguments_model = _build_tool_arguments_model(name, params_model, pagination_field)
+    arguments_model = _build_tool_arguments_model(name, params_model, pagination_field, kind)
     TOOL_CALLABLE_REGISTRY[name] = ToolRegistryEntry(
         callable=func,
         params_model=params_model,
