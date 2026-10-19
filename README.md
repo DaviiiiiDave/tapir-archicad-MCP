@@ -115,7 +115,7 @@ Jobs remain available across HTTP client reconnects while the server is running,
    > "Using port 19723, get all the Wall elements from the project."
 
 5. The AI will execute a progressive discovery and calling loop:
-   - **Step 1:** It queries `archicad_list_commands` to look up the correct command name for the requested action (identifying `elements_get_elements_by_type`).
+   - **Step 1:** It queries `archicad_list_commands` (with `query="wall"` or `group="issues"` to keep the answer short) to look up the correct command name for the requested action (identifying `elements_get_elements_by_type`).
    - **Step 2:** It calls `archicad_get_command_schema` with the target command name to retrieve the exact required JSON parameter structure.
    - **Step 3:** It calls `archicad_read_tool` (commands with `kind: "read"`) or `archicad_call_tool` (all commands) with the command name, the targeted `port`, and the required parameter payload.
 

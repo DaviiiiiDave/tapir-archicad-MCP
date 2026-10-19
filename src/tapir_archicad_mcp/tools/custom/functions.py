@@ -155,7 +155,9 @@ def _get_tapir_version_warning(tapir: TapirInfo) -> str | None:
     name="archicad_list_commands",
     title="List Available Archicad Commands",
     description=(
-        "Returns a comprehensive list of all available Archicad API commands and brief descriptions. "
+        "Returns the available Archicad API commands with brief descriptions and kind. "
+        "Pass 'query' (e.g. 'property values'; every word must occur in the name, title or description) and/or "
+        "'group' (the name prefix, e.g. 'issues') to search; call without arguments only when you need the full list. "
         "STEP 1: Use this tool FIRST to search for the right command name for your task. "
         "Do NOT guess or hallucinate command names. "
         "STEP 2: Once you find the relevant command name, you MUST use the 'archicad_get_command_schema' "
@@ -168,8 +170,10 @@ def _get_tapir_version_warning(tapir: TapirInfo) -> str | None:
         openWorldHint=False,
     ),
 )
-def archicad_list_commands() -> list[CommandOverview]:
+def archicad_list_commands(query: str | None = None, group: str | None = None) -> list[CommandOverview]:
     log.info("Executing archicad_list_commands tool...")
+    tokens = (query or "").lower().split()
+    group_prefix = f"{group.strip()}_" if group and group.strip() else None
     return [
         CommandOverview(
             name=tool["name"],
@@ -177,7 +181,14 @@ def archicad_list_commands() -> list[CommandOverview]:
             kind=tool["kind"],
         )
         for tool in TOOL_DISCOVERY_CATALOG.values()
+        if (group_prefix is None or tool["name"].startswith(group_prefix))
+        and _matches_all_tokens(tool, tokens)
     ]
+
+
+def _matches_all_tokens(tool: dict, tokens: list[str]) -> bool:
+    haystack = f"{tool['name']} {tool['title']} {tool['description']}".lower()
+    return all(token in haystack for token in tokens)
 
 
 @mcp.tool(

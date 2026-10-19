@@ -33,7 +33,11 @@ from tapir_archicad_mcp.tools.custom.models import (
     CommandSchema,
     DiscoveryResult,
 )
-from tapir_archicad_mcp.tools.tool_registry import get_tool_entry, register_tool_for_dispatch
+from tapir_archicad_mcp.tools.tool_registry import (
+    TOOL_DISCOVERY_CATALOG,
+    get_tool_entry,
+    register_tool_for_dispatch,
+)
 
 # ============================================================================
 # Helpers & Fixtures
@@ -93,6 +97,34 @@ def test_archicad_list_commands(fake_archicad):
     all_names = [cmd.name for cmd in commands]
     assert "elements_get_selected_elements" in all_names
     assert "elements_create_slabs" in all_names
+
+
+def test_list_without_arguments_is_unchanged(fake_archicad):
+    assert len(archicad_list_commands()) == len(TOOL_DISCOVERY_CATALOG)
+
+
+def test_query_matches_all_tokens(fake_archicad):
+    names = [command.name for command in archicad_list_commands(query="property value")]
+
+    assert "properties_get_property_values_of_elements" in names
+    for command in archicad_list_commands(query="property value"):
+        text = f"{command.name} {command.description}".lower()
+        assert "property" in text and "value" in text
+
+
+def test_group_filter(fake_archicad):
+    names = [command.name for command in archicad_list_commands(group="issues")]
+
+    assert names
+    assert all(name.startswith("issues_") for name in names)
+
+
+def test_no_match_returns_empty_list(fake_archicad):
+    assert archicad_list_commands(query="zzzz-no-such-command") == []
+
+
+def test_blank_query_lists_everything(fake_archicad):
+    assert len(archicad_list_commands(query="  ")) == len(TOOL_DISCOVERY_CATALOG)
 
 
 def test_archicad_get_command_schema_valid(fake_archicad):
