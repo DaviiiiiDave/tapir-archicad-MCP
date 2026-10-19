@@ -1,10 +1,10 @@
 import asyncio
 import json
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from mcp.server.mcpserver.exceptions import ToolError
-from mcp.types import ToolAnnotations
+from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from multiconn_archicad import (
     APIResponseError,
     ConnHeader,
@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from tapir_archicad_mcp.app import mcp
 from tapir_archicad_mcp.context import job_store_instance, multi_conn_instance
 from tapir_archicad_mcp.jobs import JobStore
+from tapir_archicad_mcp.images import extract_image, image_content, to_tool_result
 from tapir_archicad_mcp.outcome import summarize_execution_results
 from tapir_archicad_mcp.pagination import PaginationRequest, prepare_result
 from tapir_archicad_mcp.request_lifecycle import DispatchLifecycle
@@ -248,9 +249,9 @@ def archicad_get_command_schema(command_name: str) -> CommandSchema:
         openWorldHint=True,
     ),
 )
-async def archicad_call_tool(name: str, arguments: dict) -> dict:
+async def archicad_call_tool(name: str, arguments: dict) -> Annotated[CallToolResult, dict]:
     log.info(f"Executing archicad_call_tool for tool: {name}")
-    return await _run_command(name, arguments, read_only=False)
+    return to_tool_result(name, await _run_command(name, arguments, read_only=False))
 
 
 @mcp.tool(
@@ -269,9 +270,9 @@ async def archicad_call_tool(name: str, arguments: dict) -> dict:
         openWorldHint=True,
     ),
 )
-async def archicad_read_tool(name: str, arguments: dict) -> dict:
+async def archicad_read_tool(name: str, arguments: dict) -> Annotated[CallToolResult, dict]:
     log.info(f"Executing archicad_read_tool for tool: {name}")
-    return await _run_command(name, arguments, read_only=True)
+    return to_tool_result(name, await _run_command(name, arguments, read_only=True))
 
 
 async def _run_command(name: str, arguments: dict, *, read_only: bool) -> dict:
@@ -392,10 +393,20 @@ def _get_header(port: int) -> ConnHeader:
         readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False,
     ),
 )
-async def archicad_get_job(job_handle: str | None = None) -> dict:
+async def archicad_get_job(job_handle: str | None = None) -> Annotated[CallToolResult, dict]:
     store = job_store_instance.get()
     if job_handle is None:
         return store.list_jobs()
     job = store.get(job_handle)
     await store.wait(job)
-    return store.response(job)
+    response = store.response(job)
+    if "result" not in response:
+        return response
+    stripped, data = extract_image(job.command, response["result"])
+    if data is None:
+        return response
+    stripped_response = {**response, "result": stripped}
+    return CallToolResult(
+        content=[TextContent(type="text", text=json.dumps(stripped_response, indent=2)), image_content(data)],
+        structured_content=stripped_response,
+    )
