@@ -59,8 +59,8 @@ Archicad 30 ships a native MCP server with element sets (`successful_element_set
 
 ### 5.1 Read/write split
 
-- Every dispatchable command is classified as `read` or `write` in an explicit table in the generator config. Initial classification by name (`Get*`, `Is*`, `Find*`, `Search*` → read), then reviewed by hand and committed as an explicit list. Anything not in the read list is `write`.
-- A unit test fails if any registered command, generated or custom, is unclassified.
+- Every dispatchable command appears in exactly one of two explicit lists in the generator config: `read_commands` or `write_commands`. Initial classification by name (`Get*`, `Is*`, `Find*`, `Search*` → read), then reviewed by hand and committed.
+- A unit test fails if any registered command, generated or custom, is in neither list or in both. A Tapir bump that adds commands therefore fails until someone classifies them.
 - New top-level tool `archicad_read_tool(name, arguments)`, annotated `readOnlyHint=True, destructiveHint=False`. It rejects write commands with an error that names `archicad_call_tool`.
 - `archicad_call_tool` keeps accepting every command (compatibility) and keeps its destructive annotations. Its description directs reads to `archicad_read_tool`.
 - `archicad_list_commands` output gains `kind: "read" | "write"` per command.
@@ -80,7 +80,11 @@ Archicad 30 ships a native MCP server with element sets (`successful_element_set
 
 **What a set is.** A server-side, immutable snapshot of element GUIDs:
 - `id`: `set:<short random hex>`.
-- Bound to a `port` and a **project fingerprint** taken from the connection header (Solo path, Teamwork server + path, or untitled marker). Using a set on another port, or after the project on that port changed, is an error that says so. Save-as therefore invalidates sets. That is intended: fail loud.
+- Bound to a `port` and a **project fingerprint** (Solo path, or Teamwork server + path). The connection header is a cached snapshot (it is only refreshed by discovery, `functions.py:66-67`), so every set use re-reads the project identity from Archicad before expanding or reading the set. Using a set on another port, or after the project on that port changed, is an error that says so. Save-as therefore invalidates sets. That is intended: fail loud.
+- Known gaps, documented in the tool descriptions rather than hidden:
+  - Untitled projects all share one fingerprint, so sets on untitled projects carry a warning.
+  - Reopening the same file, reverting, or a Teamwork receive keeps the fingerprint while the content may differ. Snapshot semantics apply (§5.6 `sets_refresh`), and writes report missing elements through the read-back (§5.7).
+- All set commands take `port` like every dispatchable command (the arguments envelope requires it, `tool_registry.py:34-44`). It must match the set's port.
 - `created_at`, ordered and de-duplicated GUIDs, and `origin`: either the producing command plus a hash of its parameters, or the set definition (§5.6).
 - Stored in a dedicated in-memory `SetStore` with an LRU cap, separate from the job store. Sets are data, jobs are executions. Fast reads must not evict a set the agent is still working with. Sets are lost on server restart. The "unknown set" error says this and tells the model to recreate the set from its query.
 
@@ -112,13 +116,16 @@ Archicad 30 ships a native MCP server with element sets (`successful_element_set
 
 ### 5.5 Reading values: columns, rows, aggregates, export
 
-**Columns.** A column is a property (by property GUID) or one of a few element fields: `type`, `layer`, `story`, `isEditable`. Element fields come from Tapir `GetDetailsOfElements` with a field mask, and from `GetTypesOfElements`.
+**Columns.** A column is a property (by property GUID) or one of a few element fields:
+- `type`, from the official `GetTypesOfElements`.
+- `layer` (layer attribute GUID plus its name as shown in the project) and `story` (story index plus its name), from Tapir `GetDetailsOfElements` with a field mask (`layerIndex`, `floorIndex`), resolved through the attribute and story lists.
+- `isEditable`, derived as membership in the result of `FilterElements` with the `IsEditable` flag. `GetDetailsOfElements` has no such field.
 
-**Property identity and search.** `properties_search(port, query, alternativeQueries?, group?)` does a fuzzy search over the open project's property definitions: names as they appear in that project, in its language, plus built-in non-localized names. It returns property GUID, group, name, value type, measure type, and for built-ins the `nonLocalizedName`. Everything downstream uses GUIDs only. The model never sends a localized name to a read or write.
+**Property identity and search.** `properties_search(port, query, alternativeQueries?, group?)` does a fuzzy search over the open project's property definitions: names as they appear in that project, in its language, plus built-in non-localized names. It returns property GUID, group, name, value type, measure type, and for built-ins the `nonLocalizedName`. Names come from Tapir `GetAllProperties`. `nonLocalizedName` comes from the official `GetDetailsOfProperties`, joined by GUID. Everything downstream uses GUIDs only. The model never sends a localized name to a read or write.
 
 **Value cells.** Property values are read **typed** through the official `GetPropertyValuesOfElements` (via multiconn, not via the excluded generated wrapper):
 - A normal value: the value, with numbers in SI base units, and the unit named once per column (`m`, `m²`, `m³`, `rad`).
-- Otherwise a status, one of `userUndefined`, `notAvailable`, `notEvaluated`, plus `isDefault` where it applies. These are never collapsed into "empty".
+- Otherwise a status, one of `userUndefined`, `notAvailable`, `notEvaluated` (the statuses the official API reports). These are never collapsed into "empty". The official API does not report whether a value is the definition's default, so cells carry no default flag.
 - Elements the official command cannot read (sub-elements such as curtain-wall panels or stair parts) fall back to Tapir's string read. Those cells are marked `typed: false`. They are never silently dropped. The builder defines and tests how filters compare against fallback values (§5.6).
 
 **Commands**
@@ -132,20 +139,24 @@ Archicad 30 ships a native MCP server with element sets (`successful_element_set
 ```json
 {
   "source": {"types": ["Door"], "flags": ["IsEditable"]},
-  "layers": [12], "stories": [0, 1],
+  "layers": [{"guid": "…"}], "stories": [0, 1],
   "where": [
     {"property": {"guid": "…"}, "operator": "IsUserUndefined"},
     {"property": {"guid": "…"}, "operator": "GreaterOrEqual", "value": 0.3}
   ]
 }
 ```
+- This section is the normative schema. The Tapir request mirrors it, not the other way round.
 - All criteria must match (AND). OR comes from `sets_combine`.
-- Operators are identical to the Tapir request: `Equal`, `NotEqual`, `Less`, `LessOrEqual`, `Greater`, `GreaterOrEqual`, `Contains` (comparisons, need `value`); `HasValue`, `IsUserUndefined`, `IsNotAvailable`, `IsDefault` (status, no `value`).
+- **Layers are identified by layer attribute GUID**: stable when the layer list is edited, independent of language. They are resolved to indices at evaluation time. **Stories are identified by story index**, because Archicad stories have no GUID. Inserting a story below shifts indices. This is a documented limit, and the set summary names each story index together with its current name.
+- Operators: `Equal`, `NotEqual`, `Less`, `LessOrEqual`, `Greater`, `GreaterOrEqual`, `Contains` (comparisons, need `value`); `HasValue`, `IsUserUndefined`, `IsNotAvailable` (status, no `value`); `IsDefault` (status, see below).
 - Comparisons work on typed values in SI units. Only a normal value can match a comparison. **An undefined, not-available or not-evaluated value never matches, including `NotEqual`.**
+- Enumeration `value` is the display value of the item as it appears in the project, matched exactly. `Contains` is a case-insensitive substring match on strings. On list and multi-enumeration values it means "one item equals `value`".
+- `IsDefault` is only available on the in-process path, because only Archicad's own API reports the default state. The fallback path rejects it with an error that says so. It does not approximate it by comparing against the definition's default value, since a user can type the same value by hand.
 - Flag filters that depend on the current view state (`IsVisibleByRenovation`, `OnActualFloor`, `InCroppedView`, …) are applied only when the definition lists them. They are stored in the definition, so `sets_refresh` re-evaluates under the same explicit filters. The set summary warns when such a flag was used, because the result then depends on what is open on screen.
 
 **Execution, two paths with identical semantics**
-1. **In-process (preferred):** if the installed Tapir version supports property criteria and layer/story/type on `FilterElements`, the definition is compiled into one `FilterElements` call. The version gate uses `tapir_info.version`. The version number is set once the Tapir feature is released. Until then this path is off.
+1. **In-process (preferred, step 9, deferred until Tapir ships the feature):** if the installed Tapir version supports property criteria and layer/story/type on `FilterElements`, the candidates from `source` are passed to one `FilterElements` call. `FilterElements` tests a given element list and does not search the model (`multiconn models/tapir/commands.py:1271-1274`). Candidate GUIDs therefore still travel between server and Archicad, but never through the model, and property values never leave Archicad. The version gate uses `tapir_info.version`. The version number is set once the Tapir feature is released. Until then this path is off.
 2. **Fallback (always available):** candidates via Tapir `GetElementsByType` / `GetAllElements` (with `databases` and flags), then layer/story via `GetDetailsOfElements` with a field mask, then property values via the typed read, compared in Python. Cost: one bulk read per criterion over the remaining candidates. Cheap criteria are evaluated first.
 
 The comparison and status semantics live in one module with one test suite. An equivalence test runs both paths on the same fixture and requires identical results when the in-process path is available.
