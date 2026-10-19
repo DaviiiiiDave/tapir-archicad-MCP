@@ -21,7 +21,10 @@ Archicad 30 ships a native MCP server with element sets (`successful_element_set
 - Element data stays in the server. The model handles set references, counts, summaries and small samples.
 - Every number the server reports can be reconciled: totals, truncation, and per-element outcomes by cause are always explicit.
 - Reads cannot be mistaken for writes by the MCP client (permission prompts become meaningful again).
-- Bulk property writes are previewed, confirmed with a token, applied, and read back.
+- Bulk property writes are previewed, confirmed with a token, applied, read back, and can be reverted.
+- Every write the server executes is recorded in a change log the user can read after the session.
+- Irreversible commands (save, close, Teamwork send/receive, publish, delete) cannot run without an explicit confirmation in the call.
+- Images Archicad returns reach the model as images it can see, not as base64 text.
 - Works with every Archicad language version and template. Nothing assumes German, English or a particular office standard.
 - Proven by a benchmark, not asserted.
 
@@ -36,6 +39,7 @@ Archicad 30 ships a native MCP server with element sets (`successful_element_set
 - A result that looks complete but is not: missing elements, truncated lists or skipped values without the response saying so.
 - "Missing value" findings that do not distinguish *undefined*, *not available for this element* and *default*.
 - A write that can be applied twice by a retry.
+- A change to the model that the user cannot trace afterwards.
 - Changes so large or so clever that the maintainer cannot review them in one sitting.
 
 ## 3. Constraints
@@ -53,14 +57,19 @@ Archicad 30 ships a native MCP server with element sets (`successful_element_set
 - Validation errors are raised with the full pydantic message (`functions.py:242`), which includes input values. A rejected call with thousands of GUIDs echoes them back.
 - Paginated results are snapshots held as job results (`jobs.py`, `pagination.py`), at most 128 finished jobs, 24 h TTL.
 - The typed official property commands are excluded in favour of Tapir's, because Tapir's also work on sub-elements (`scripts/generator_config.py:112-113`). Tapir returns property values as display strings, the official API returns typed values in SI units with a status.
-- Tapir's `FilterElements` filters only by 13 boolean flags. PR ENZYME-APD/tapir-archicad-automation#917 (open) adds layer, story and element type. A request for property-value criteria was posted to the Tapir Discord on 2026-10-19 (issue number pending).
+- Tapir's `FilterElements` filters only by 13 boolean flags. PR ENZYME-APD/tapir-archicad-automation#917 (open) adds layer, story and element type.
+- Issue ENZYME-APD/tapir-archicad-automation#1253 requests property-value criteria on `FilterElements`, with this design's semantics as its detailed spec. The Tapir bot will build it once #917 is merged.
+- In the same thread a contributor announced a separate command, `GetElementsByCriteria`, from a fork branch (not yet a PR at the time of writing). It searches the whole model and has `countOnly`. As read on 2026-10-19 it compares numbers through formatted display strings, ignores the not-available status, and silently drops criteria with an unknown property or type. Which in-process command Tapir ends up with is open. §5.6 therefore gates on capability, not on a command name.
+- Preview and room images are returned as base64 strings (`GetElementPreviewImageResult.previewImage`, `GetRoomImageResult.roomImage` in multiconn). Through `archicad_call_tool` they arrive as text: expensive, and the model cannot see them.
 
 ## 5. Design
 
 ### 5.1 Read/write split
 
-- Every dispatchable command appears in exactly one of two explicit lists in the generator config: `read_commands` or `write_commands`. Initial classification by name (`Get*`, `Is*`, `Find*`, `Search*` → read), then reviewed by hand and committed.
-- A unit test fails if any registered command, generated or custom, is in neither list or in both. A Tapir bump that adds commands therefore fails until someone classifies them.
+- Every dispatchable command appears in exactly one of three explicit lists in the generator config: `read_commands`, `write_commands` or `irreversible_commands`. Initial classification by name (`Get*`, `Is*`, `Find*`, `Search*` → read), then reviewed by hand and committed.
+- `irreversible_commands` holds what cannot be taken back with Archicad's undo or affects other people: saving, save-as, closing or opening projects, Teamwork send and receive, publishing, deleting elements, attributes or navigator items. The builder makes the final list by reading the catalog.
+- A unit test fails if any registered command, generated or custom, is in no list or in more than one. A Tapir bump that adds commands therefore fails until someone classifies them.
+- An irreversible command runs only when the call carries `"confirm": true` next to `port`. Without it the server refuses and tells the model to ask the user first. The client's own approval prompt still applies on top.
 - New top-level tool `archicad_read_tool(name, arguments)`, annotated `readOnlyHint=True, destructiveHint=False`. It rejects write commands with an error that names `archicad_call_tool`.
 - `archicad_call_tool` keeps accepting every command (compatibility) and keeps its destructive annotations. Its description directs reads to `archicad_read_tool`.
 - `archicad_list_commands` output gains `kind: "read" | "write"` per command.
@@ -156,7 +165,7 @@ Archicad 30 ships a native MCP server with element sets (`successful_element_set
 - Flag filters that depend on the current view state (`IsVisibleByRenovation`, `OnActualFloor`, `InCroppedView`, …) are applied only when the definition lists them. They are stored in the definition, so `sets_refresh` re-evaluates under the same explicit filters. The set summary warns when such a flag was used, because the result then depends on what is open on screen.
 
 **Execution, two paths with identical semantics**
-1. **In-process (preferred, step 9, deferred until Tapir ships the feature):** if the installed Tapir version supports property criteria and layer/story/type on `FilterElements`, the candidates from `source` are passed to one `FilterElements` call. `FilterElements` tests a given element list and does not search the model (`multiconn models/tapir/commands.py:1271-1274`). Candidate GUIDs therefore still travel between server and Archicad, but never through the model, and property values never leave Archicad. The version gate uses `tapir_info.version`. The version number is set once the Tapir feature is released. Until then this path is off.
+1. **In-process (preferred, step 9, deferred until Tapir ships the feature):** used only when the installed Tapir has an in-process criteria command whose semantics pass this section's test suite: typed comparisons, the status rules, and errors instead of silently dropped criteria. Whichever command that is (`FilterElements` with `propertyCriteria` per #1253, or another), it is wired behind the same interface. The description below assumes `FilterElements`: the candidates from `source` are passed to one `FilterElements` call. `FilterElements` tests a given element list and does not search the model (`multiconn models/tapir/commands.py:1271-1274`). Candidate GUIDs therefore still travel between server and Archicad, but never through the model, and property values never leave Archicad. The version gate uses `tapir_info.version`. The version number is set once the Tapir feature is released. Until then this path is off.
 2. **Fallback (always available):** candidates via Tapir `GetElementsByType` / `GetAllElements` (with `databases` and flags), then layer/story via `GetDetailsOfElements` with a field mask, then property values via the typed read, compared in Python. Cost: one bulk read per criterion over the remaining candidates. Cheap criteria are evaluated first.
 
 The comparison and status semantics live in one module with one test suite. An equivalence test runs both paths on the same fixture and requires identical results when the in-process path is available.
@@ -176,13 +185,29 @@ The comparison and status semantics live in one module with one test suite. An e
 
 **With `planId`: apply.**
 - The server re-checks that the set and assignments still match the plan, and refuses otherwise.
+- Right before writing it reads the current values of all target elements and stores them with the plan. These are the values a revert restores.
 - It writes with the typed official `SetPropertyValuesOfElements`. For elements only Tapir can write (sub-elements), it formats SI values into Tapir's string form. The builder verifies how Tapir parses such strings, including locale decimal separators and units, before enabling this branch.
 - Then it **reads back** every written value and reports `requested`, `applied`, `unchanged`, `failed`. Failures are grouped by cause, and there are sets for `applied` and `failed`.
 - Applying a used `planId` again returns the stored result of the first apply and does not write again.
 
+**Revert.** `sets_revert(planId)` builds a new plan that restores the stored previous values for the elements the original apply changed. It goes through the same preview → `planId` → apply → read-back cycle. Elements whose value changed again since the original apply (by a person or another plan) are not overwritten. They are reported as their own group "changed since apply". A previous status (undefined) is restored as that status, not as an empty string. Like plans, revert data lives in memory and is lost on server restart. Write responses say so.
+
 Generic write commands stay available through `archicad_call_tool` without preview. Their descriptions point bulk property writes to this command.
 
-### 5.8 What stays out of v1, deliberately
+### 5.8 Change log
+
+The server appends one JSON line per executed write or irreversible command to a change log file (`--change-log`, default in the user's application data directory, one file per day):
+- Time, port, project fingerprint, command, a bounded argument preview, the outcome counts (§5.3), and the job handle.
+- For `sets_set_property_values` and `sets_revert` additionally the full per-element record: element GUID, property GUID, previous value or status, new value, outcome.
+- Read commands are not logged.
+
+Every write response includes the log file path. The log is plain JSONL, so it can be read without the server, opened in a spreadsheet, or attached to a project file. The point is to answer the question "what did the AI change in my model?" after the fact, including after a server restart.
+
+### 5.9 Images the model can see
+
+Result fields that carry base64 images are listed in an explicit table (at least `GetElementPreviewImage.previewImage`, `GetRoomImage.roomImage`, favorite and profile previews; the builder completes it from the schemas). For these commands the server returns the image as MCP image content next to the JSON. In the JSON the base64 string is replaced by a short reference to that content item. The model can then check its own work visually, for example whether a highlighted set covers the intended rooms, and the base64 text no longer fills the context.
+
+### 5.10 What stays out of v1, deliberately
 
 - Persisting sets or definitions to disk.
 - Change notifications (Tapir `SetElementNotificationClient`) to mark sets stale.
@@ -196,7 +221,7 @@ Each step is a self-contained PR to the fork's `master`. After it is measured, i
 
 | # | Change | Layer | Size | Upstream |
 |---|---|---|---|---|
-| 1 | Read/write classification table, `archicad_read_tool`, `kind` in catalog | MCP runtime + generator config | small | yes |
+| 1 | Read/write/irreversible classification, `archicad_read_tool`, `confirm` for irreversible commands, `kind` in catalog | MCP runtime + generator config | small | yes |
 | 2 | Validation errors without input echo | MCP runtime | small | yes |
 | 3 | `query` / `group` on `archicad_list_commands` | MCP runtime | small | yes |
 | 4 | Response envelope (`total`/`returned`/`truncated`, write outcome counts) | MCP runtime | small | yes |
@@ -205,7 +230,9 @@ Each step is a self-contained PR to the fork's `master`. After it is measured, i
 | 7 | `properties_search`, `sets_rows`, `sets_aggregate`, `sets_export` | MCP `tools/custom/` | medium | yes |
 | 8 | Set definitions, `sets_create` / `sets_refresh` / `sets_combine` / `sets_from_selection`, fallback filter path | multiconn evaluator + MCP commands | medium | yes |
 | 9 | In-process filter path gated on Tapir version | MCP runtime | small | yes, once Tapir ships it |
-| 10 | Two-phase `sets_set_property_values` with read-back | MCP `tools/custom/` | medium | offered, fork-only if declined |
+| 10 | Two-phase `sets_set_property_values` with read-back, `sets_revert` | MCP `tools/custom/` | medium | offered, fork-only if declined |
+| 11 | Images as MCP image content | MCP runtime | small | yes |
+| 12 | Change log | MCP runtime | small | offered |
 | — | Benchmark harness, Code-Mode arm | fork only | medium | no |
 
 ## 7. Benchmark and evaluation (fork only)
@@ -231,7 +258,7 @@ Each step is a self-contained PR to the fork's `master`. After it is measured, i
 
 **Tasks** (each needs an oracle, the project's own interactive schedule or a direct multiconn query):
 1. Doors without a fire rating on the scale fixture, including curtain-wall sub-elements, with *undefined* and *not available* reported separately. Output CSV.
-2. Assign a property value to about 3,000 walls by rule on the scale fixture: preview, apply, read back. Target: zero wrong writes.
+2. Assign a property value to about 3,000 walls by rule on the scale fixture: preview, apply, read back, then revert. Target: zero wrong writes, and after the revert every value or status equals the original (checked out-of-band).
 3. The check from task 1 on the international-template fixture, with property and group names as they appear in that project.
 4. Bulk write where some elements are on a locked layer or hotlinked. Failures must be bucketed by cause, with no silent partial result.
 5. Recovery: the response to a write is dropped mid-task (fault-injecting proxy). The model must recover without a double write.
@@ -261,3 +288,14 @@ On small tasks, no more than a 10 % token regression. With N=3 the confidence in
 - Fuzzy-matching algorithm for `properties_search`.
 - Export directory default per OS.
 - Fault-injection proxy and benchmark report format.
+- Change-log file location per OS and rotation details.
+- The complete list of irreversible commands and of image result fields.
+
+## 10. Roadmap: separate follow-up projects
+
+None of these is part of this design. Each gets its own brainstorming, spec and plan, informed by the benchmark results.
+
+- **Workflow knowledge.** Curated workflows as MCP prompts (fire-rating audit, IFC preparation, room schedules), and better command descriptions. Several are terse today, for example `FilterElements`: "Tests an elements by the given criterias". They come from Tapir's schemas, so they are best improved upstream in Tapir.
+- **Checks to coordination.** Turning a set into an issue with attached elements and exporting it as BCF (`issues_create_issue`, `issues_attach_elements_to_issue`, `issues_export_issues_to_bcf` exist), for example `sets_to_issue(set, title)`.
+- **Modeling.** Reliable element creation (`elements_create_walls`, `elements_create_slabs`, favorites) and spatial reasoning for agents.
+- **Robustness.** Per-port serialization or chunking if the benchmark shows UI stalls from parallel calls (up to 32 workers into one Archicad), MCP progress notifications for long jobs, and guards for known Tapir bugs that report success without effect (e.g. #695).
