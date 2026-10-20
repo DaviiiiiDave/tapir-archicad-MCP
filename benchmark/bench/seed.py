@@ -107,20 +107,31 @@ def _chunks(items: list, size: int):
 
 
 def set_states(
-    ac, states: dict[str, str], prop: str, value: str, classification_system: dict, via: str, chunk: int = 1000
+    ac,
+    states: dict[str, str],
+    prop: str,
+    value: str,
+    classification_system: dict,
+    via: str,
+    chunk: int = 1000,
+    value_type: str = "string",
 ) -> None:
     """Produce each state: value / empty / undefined by writing the property, not_available by removing the
-    classification. Through Tapir (curtain-wall panels) undefined cannot be written and is left as it starts."""
+    classification. Through Tapir (curtain-wall panels) undefined cannot be written and is left as it starts.
+    A singleEnum property is written by display value and has no empty state."""
+    if value_type == "singleEnum" and "empty" in states.values():
+        raise ValueError("a singleEnum property has no empty state")
     if via == "official":
         call, set_command, classify_command = (
             ac.official,
             "API.SetPropertyValuesOfElements",
             "API.SetClassificationsOfElements",
         )
+        normal = {"type": "displayValue", "displayValue": value} if value_type == "singleEnum" else value
         payloads = {
-            "value": {"type": "string", "status": "normal", "value": value},
-            "empty": {"type": "string", "status": "normal", "value": ""},
-            "undefined": {"type": "string", "status": "userUndefined"},
+            "value": {"type": value_type, "status": "normal", "value": normal},
+            "empty": {"type": value_type, "status": "normal", "value": ""},
+            "undefined": {"type": value_type, "status": "userUndefined"},
         }
     else:
         call, set_command, classify_command = ac.tapir, "SetPropertyValuesOfElements", "SetClassificationsOfElements"
@@ -361,6 +372,39 @@ def seed_scale(ac: BenchArchicad, cfg: BenchConfig) -> Path:
     return write_manifest(cfg.data_dir / "fixtures" / "scale.manifest.json", manifest)
 
 
+def seed_international(ac: BenchArchicad, cfg: BenchConfig) -> Path:
+    """TestProject (international template) saved once as .pln by hand, plus walls and doors in every state its
+    enumeration property allows. Doors already in the project are kept and recorded as they are."""
+    spec, rule = cfg.fixtures["international"], cfg.oracle["international"]
+    if cfg.international_source.suffix.lower() != ".pln":
+        raise RuntimeError(
+            f"{cfg.international_source} is not a .pln: open the .pla once in Archicad, save it as .pln, "
+            "and point international_source in local.toml at that file"
+        )
+    fixture = cfg.data_dir / "fixtures" / "international.pln"
+    _open_fresh(ac, cfg.international_source, fixture)
+    fire = property_id(ac, rule["fire_property_group"], rule["fire_property_name"])
+    system = {"guid": rule["classification_system"]}
+    existing = door_like_elements(ac, rule)
+    existing_states = {guid: state for guid, (state, _) in snapshot_property(ac, existing, fire).items()}
+
+    walls = create_walls(
+        ac,
+        wall_grid(
+            spec["walls"], [0], [(SMALL_WALL_THICKNESS, spec["walls"])], 3.0, 1.0, origin=(1000.0, 0.0), per_row=10
+        ),
+    )
+    doors = create_doors(ac, walls, center_offset=1.5)
+    door_states = assign_states(doors, spec["door_states"])
+    set_states(ac, door_states, fire, spec["door_value"], system, "official", value_type=spec["value_type"])
+    ac.save_project()
+    manifest = _base_manifest(
+        cfg, "international", fixture, rule["fire_property_group"], rule["fire_property_name"], fire, spec
+    )
+    manifest |= {"oracle": "international", "sha256": _sha256(fixture), "doors": existing_states | door_states}
+    return write_manifest(cfg.data_dir / "fixtures" / "international.manifest.json", manifest)
+
+
 def verify(ac: BenchArchicad, cfg: BenchConfig, manifest_path: Path) -> list[str]:
     """Open the fixture fresh and re-derive its ground truth; return every mismatch with the manifest."""
     manifest = read_manifest(manifest_path)
@@ -369,7 +413,7 @@ def verify(ac: BenchArchicad, cfg: BenchConfig, manifest_path: Path) -> list[str
     if _sha256(Path(manifest["fixture"])) != manifest["sha256"]:
         problems.append("fixture file changed since seeding")
     prop = manifest["property"]["id"]
-    rule = cfg.oracle["german"]
+    rule = cfg.oracle[manifest.get("oracle", "german")]
     doors = door_like_elements(ac, rule)
     problems += [f"door {p}" for p in compare_states(manifest["doors"], snapshot_property(ac, doors, prop))]
 

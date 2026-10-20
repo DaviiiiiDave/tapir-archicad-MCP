@@ -46,6 +46,13 @@ door_value = "EI2 30"
 wall_states = { value = 2000, empty = 1500, undefined = 1500 }
 door_states = { value = 400, empty = 200, undefined = 200, not_available = 200 }
 
+# TestProject's fire property is a singleChoiceEnumeration (default "20 minutes"): it has no empty state.
+[fixtures.international]
+walls = 40
+value_type = "singleEnum"
+door_value = "1 hour"
+door_states = { value = 20, undefined = 10, not_available = 10 }
+
 # Measured on copies of Benchmark.pln (2026-10-20, Task 4 step 4).
 # - OpenProject on a saved copy returns without a dialog; the open itself took 27-45 s.
 # - New walls and doors get a classification item that is in the fire property's availability,
@@ -60,6 +67,17 @@ not_available_by = "remove_classification"
 # Curtain-wall door panels (measured on Dave's curtain wall, 8 door panels of 18): built-in "Paneel-Typ" shows
 # "Fassaden Tür"; glass panels show "Integriertes Fassaden-Paneel". The official API supports neither reading,
 # writing nor classifying panels (error 7203); Tapir does all three, values as display strings.
+door_panel_group = "Fassadenpaneel"
+door_panel_property = "Paneel-Typ"
+door_panel_value = "Fassaden Tür"
+
+# Measured on TestProject opened in German Archicad (2026-10-20): one classification system, the fire property is
+# available for 137 items (incl. Door, Wall). Built-in names stay German, so the door-panel rule is the same.
+[oracle.international]
+classification_system = "632C30E5-2B82-4A75-BFAD-D52FEBCE9A4A"
+fire_property_group = "GENERAL RATINGS"
+fire_property_name = "Fire Resistance Rating"
+not_available_by = "remove_classification"
 door_panel_group = "Fassadenpaneel"
 door_panel_property = "Paneel-Typ"
 door_panel_value = "Fassaden Tür"

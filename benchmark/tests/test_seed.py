@@ -125,6 +125,39 @@ def test_set_states_writes_panels_through_tapir_and_leaves_undefined_alone():
     assert [c["elementId"]["guid"] for c in unclassify[2]["elementClassifications"]] == ["p4"]
 
 
+def test_set_states_writes_enum_values_by_display_value():
+    ac = FakeAC()
+
+    set_states(
+        ac,
+        {"d1": "value", "d2": "undefined"},
+        PROP,
+        value="1 hour",
+        classification_system=SYSTEM,
+        via="official",
+        value_type="singleEnum",
+    )
+
+    (set_values,) = ac.calls
+    assert [v["propertyValue"] for v in set_values[2]["elementPropertyValues"]] == [
+        {"type": "singleEnum", "status": "normal", "value": {"type": "displayValue", "displayValue": "1 hour"}},
+        {"type": "singleEnum", "status": "userUndefined"},
+    ]
+
+
+def test_set_states_refuses_empty_for_an_enum():
+    with pytest.raises(ValueError, match="empty"):
+        set_states(
+            FakeAC(),
+            {"d1": "empty"},
+            PROP,
+            value="1 hour",
+            classification_system=SYSTEM,
+            via="official",
+            value_type="singleEnum",
+        )
+
+
 def test_set_states_fails_loudly_when_archicad_refuses():
     ac = FakeAC()
     ac.official = lambda command, params=None: {

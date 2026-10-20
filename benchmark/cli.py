@@ -9,9 +9,9 @@ from bench.archicad import BenchArchicad
 from bench.arms import dump_kinds, prepare_arm
 from bench.config import load_config
 from bench.preflight import run_preflight
-from bench.seed import seed_german, seed_scale, verify
+from bench.seed import seed_german, seed_international, seed_scale, verify
 
-SEEDERS = {"german": seed_german, "scale": seed_scale}
+SEEDERS = {"german": seed_german, "scale": seed_scale, "international": seed_international}
 
 HERE = Path(__file__).resolve().parent
 
