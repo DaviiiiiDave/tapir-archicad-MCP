@@ -9,7 +9,10 @@ from bench.archicad import BenchArchicad
 from bench.arms import dump_kinds, prepare_arm
 from bench.config import load_config
 from bench.preflight import run_preflight
+from bench.report import build_setup, load_round, render_markdown, summarize
+from bench.runner import plan_matrix, run_round
 from bench.seed import seed_german, seed_international, seed_scale, verify
+from bench.tasks import TASKS
 
 SEEDERS = {"german": seed_german, "scale": seed_scale, "international": seed_international}
 
@@ -24,6 +27,14 @@ def main(argv: list[str] | None = None) -> int:
     seed = commands.add_parser("seed", help="seed a fixture on the Benchmark instance, or verify all seeded ones")
     seed.add_argument("fixture", nargs="?", choices=sorted(SEEDERS))
     seed.add_argument("--verify", action="store_true")
+    run = commands.add_parser("run", help="run a round; runs that already have a verdict are skipped")
+    run.add_argument("--round", required=True, dest="round_id")
+    run.add_argument("--arms", help="comma separated, default: every arm")
+    run.add_argument("--models", help="comma separated, default: every model")
+    run.add_argument("--tasks", help="comma separated, default: T1..T5")
+    run.add_argument("--runs", type=int, help="runs per cell, default: runs_per_cell of bench.toml")
+    report = commands.add_parser("report", help="write benchmark/results/<round>.md and .json from the verdicts")
+    report.add_argument("--round", required=True, dest="round_id")
     args = parser.parse_args(argv)
     cfg = load_config(HERE / "bench.toml", HERE / "local.toml")
 
@@ -48,6 +59,29 @@ def main(argv: list[str] | None = None) -> int:
                 for problem in problems[:20]:
                     print(f"  - {problem}")
         return 1 if failed else 0
+
+    if args.command == "run":
+        specs = plan_matrix(
+            args.tasks.split(",") if args.tasks else list(TASKS),
+            args.arms.split(",") if args.arms else list(cfg.arms),
+            args.models.split(",") if args.models else list(cfg.models),
+            args.runs or cfg.runs_per_cell,
+            args.round_id,
+        )
+        result = run_round(cfg, args.round_id, specs)
+        print(f"done {len(result.done)}, skipped {len(result.skipped)}, stopped: {result.stopped}")
+        return 1 if result.stopped else 0
+
+    if args.command == "report":
+        records = load_round(cfg.data_dir / "runs" / args.round_id)
+        summary, setup = summarize(records), build_setup(cfg, args.round_id)
+        results = HERE / "results"
+        (results / f"{args.round_id}.md").write_text(render_markdown(summary, setup), encoding="utf-8")
+        (results / f"{args.round_id}.json").write_text(
+            json.dumps({"setup": setup, "rows": summary}, indent=1, ensure_ascii=False), encoding="utf-8"
+        )
+        print(f"{len(records)} verdicts -> {results / (args.round_id + '.md')}")
+        return 0
 
     path = run_preflight(cfg)
     report = json.loads(path.read_text(encoding="utf-8"))
