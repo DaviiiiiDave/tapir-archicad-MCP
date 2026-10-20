@@ -1,4 +1,5 @@
 from collections import Counter
+from itertools import pairwise
 
 import pytest
 from bench.seed import assign_states, compare_states, read_manifest, set_states, wall_grid, write_manifest
@@ -21,11 +22,11 @@ def test_wall_grid_is_deterministic_and_non_overlapping():
     assert len(starts) == 5000
     for floor in (-1, 0, 1):
         rows = sorted({w["begCoordinate"]["y"] for w in walls if w["floorIndex"] == floor})
-        assert min(b - a for a, b in zip(rows, rows[1:])) >= 2 * 0.30
+        assert min(b - a for a, b in pairwise(rows)) >= 2 * 0.30
         row = sorted(
             w["begCoordinate"]["x"] for w in walls if w["floorIndex"] == floor and w["begCoordinate"]["y"] == rows[0]
         )
-        assert min(b - a for a, b in zip(row, row[1:])) >= 3.0 + 0.5
+        assert min(b - a for a, b in pairwise(row)) >= 3.0 + 0.5
 
 
 def test_wall_grid_starts_at_the_origin_it_is_given():

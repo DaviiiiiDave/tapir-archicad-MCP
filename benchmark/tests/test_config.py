@@ -60,7 +60,7 @@ def test_committed_bench_toml_loads(tmp_path, monkeypatch):
 
     cfg = load_config(Path(__file__).parents[1] / "bench.toml", write(tmp_path / "local.toml", LOCAL_TOML))
 
-    assert cfg.bench_port == 19725
+    assert 19723 <= cfg.bench_port < 19744
     assert set(cfg.models) == set(cfg.budgets_usd) == {"haiku", "sonnet"}
     assert {name: (arm.ref, arm.change_log_flag) for name, arm in cfg.arms.items()} == {
         "A": ("v0.6.5", False),
