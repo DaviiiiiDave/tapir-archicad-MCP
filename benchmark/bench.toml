@@ -36,3 +36,9 @@ classification_system = "B6636241-937D-234D-902F-2D30E4BD0FB8"
 fire_property_group = "Allgemeine Werte"
 fire_property_name = "Feuerwiderstandsklasse 13501-2"
 not_available_by = "remove_classification"
+# Curtain-wall door panels (measured on Dave's curtain wall, 8 door panels of 18): built-in "Paneel-Typ" shows
+# "Fassaden Tür"; glass panels show "Integriertes Fassaden-Paneel". The official API supports neither reading,
+# writing nor classifying panels (error 7203); Tapir does all three, values as display strings.
+door_panel_group = "Fassadenpaneel"
+door_panel_property = "Paneel-Typ"
+door_panel_value = "Fassaden Tür"

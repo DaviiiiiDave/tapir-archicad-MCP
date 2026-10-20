@@ -1,5 +1,12 @@
 import pytest
-from bench.oracle import door_owners, editable, normalize_property_value, property_id, snapshot_property
+from bench.oracle import (
+    door_like_elements,
+    door_owners,
+    editable,
+    normalize_property_value,
+    property_id,
+    snapshot_property,
+)
 
 GUID_A = "11111111-1111-1111-1111-111111111111"
 GUID_B = "22222222-2222-2222-2222-222222222222"
@@ -105,21 +112,127 @@ def test_snapshot_reads_in_chunks():
     assert len(snapshot) == 2500
 
 
+GONE = {"error": {"code": 7204, "message": 'Element not found (element guid: "22222222-2222-2222-2222-222222222222")'}}
+UNSUPPORTED = {"error": {"code": 7203, "message": 'Element not supported (element guid: "x")'}}
+
+
 def test_snapshot_marks_elements_that_are_gone_as_missing():
     def answer(_params):
-        return {
-            "propertyValuesForElements": [
-                {"propertyValues": [value("string", "userUndefined")]},
-                {"error": {"code": 4001, "message": "The element does not exist."}},
-            ]
-        }
+        return {"propertyValuesForElements": [{"propertyValues": [value("string", "userUndefined")]}, GONE]}
 
     ac = FakeAC(official={"API.GetPropertyValuesOfElements": answer})
 
     assert snapshot_property(ac, [GUID_A, GUID_B], PROP) == {
         GUID_A: ("undefined", None),
-        GUID_B: ("missing", "The element does not exist."),
+        GUID_B: ("missing", GONE["error"]["message"]),
     }
+
+
+def tapir_display(*items):
+    return lambda _params: {"propertyValuesForElements": [{"propertyValues": [item]} for item in items]}
+
+
+@pytest.mark.parametrize(
+    ("tapir_item", "expected"),
+    [
+        ({"propertyValue": {"value": "<Undefined>"}}, ("undefined", None)),
+        ({"propertyValue": {"value": ""}}, ("empty", "")),
+        ({"propertyValue": {"value": "EI2 30"}}, ("value", "EI2 30")),
+        (
+            {"error": {"code": -2130312908, "message": "Not available or not evaluated property"}},
+            ("not_available", None),
+        ),
+    ],
+)
+def test_snapshot_reads_elements_the_official_api_does_not_support_through_tapir(tapir_item, expected):
+    def official(_params):
+        return {
+            "propertyValuesForElements": [{"propertyValues": [value("string", "normal", value="EI2 90")]}, UNSUPPORTED]
+        }
+
+    ac = FakeAC(
+        official={"API.GetPropertyValuesOfElements": official},
+        tapir={"GetPropertyValuesOfElements": tapir_display(tapir_item)},
+    )
+
+    snapshot = snapshot_property(ac, [GUID_A, GUID_B], PROP)
+
+    assert snapshot == {GUID_A: ("value", "EI2 90"), GUID_B: expected}
+    tapir_call = ac.calls[-1]
+    assert tapir_call[:2] == ("tapir", "GetPropertyValuesOfElements")
+    assert tapir_call[2] == {
+        "elements": [{"elementId": {"guid": GUID_B}}],
+        "properties": [{"propertyId": {"guid": PROP}}],
+    }
+
+
+def test_snapshot_raises_on_other_element_errors():
+    ac = FakeAC(
+        official={
+            "API.GetPropertyValuesOfElements": lambda _p: {
+                "propertyValuesForElements": [{"error": {"code": 9999, "message": "?"}}]
+            }
+        }
+    )
+
+    with pytest.raises(ValueError, match="9999"):
+        snapshot_property(ac, [GUID_A], PROP)
+
+
+def panel_details(params):
+    hidden = {GUID_C: True}
+    return {
+        "detailsOfElements": [
+            {
+                "type": "CurtainWallPanel",
+                "id": "Glaspaneel-005",
+                "floorIndex": 0,
+                "layerIndex": 7,
+                "drawIndex": 7,
+                "details": {
+                    "polygonCoordinates": [
+                        {"x": 0, "y": 0, "z": 0},
+                        {"x": 1, "y": 0, "z": 0},
+                        {"x": 1, "y": 0, "z": 2},
+                    ],
+                    "isHidden": hidden.get(e["elementId"]["guid"], False),
+                    "segmentIndex": 0,
+                    "className": "",
+                    "frames": [],
+                },
+            }
+            for e in params["elements"]
+        ]
+    }
+
+
+GUID_C = "33333333-3333-3333-3333-333333333333"
+GUID_D = "44444444-4444-4444-4444-444444444444"
+DOOR = "55555555-5555-5555-5555-555555555555"
+PANEL_TYPE = "E57D9AC4-0C1B-4862-A394-BE488C026A4F"
+RULE = {"door_panel_group": "Fassadenpaneel", "door_panel_property": "Paneel-Typ", "door_panel_value": "Fassaden Tür"}
+
+
+def test_door_like_elements_are_doors_plus_visible_door_panels():
+    by_type = {"Door": [DOOR], "CurtainWallPanel": [GUID_A, GUID_C, GUID_D]}
+    panel_types = {GUID_A: "Fassaden Tür", GUID_C: "Fassaden Tür", GUID_D: "Integriertes Fassaden-Paneel"}
+    ac = FakeAC(
+        tapir={
+            "GetElementsByType": lambda p: {
+                "elements": [{"elementId": {"guid": g}} for g in by_type[p["elementType"]]]
+            },
+            "GetDetailsOfElements": panel_details,
+            "GetAllProperties": all_properties((PANEL_TYPE, "Fassadenpaneel", "Paneel-Typ")),
+            "GetPropertyValuesOfElements": lambda p: {
+                "propertyValuesForElements": [
+                    {"propertyValues": [{"propertyValue": {"value": panel_types[e["elementId"]["guid"]]}}]}
+                    for e in p["elements"]
+                ]
+            },
+        }
+    )
+
+    assert door_like_elements(ac, RULE) == [DOOR, GUID_A]
 
 
 def test_door_owners_reads_owner_wall():
