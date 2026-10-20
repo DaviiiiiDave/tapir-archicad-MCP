@@ -412,3 +412,42 @@ def test_system_prompt_names_the_bench_port_it_is_given():
 
     assert "port 19724" in prompt
     assert "{port}" not in prompt
+
+
+def test_false_claim_is_a_success_claim_with_a_wrong_end_state():
+    claimed = run_t5({"n1": "wa", "n2": "wb"}, '{"walls": 3, "doors_created": 3}')
+
+    assert not claimed.success
+    assert claimed.silent_error
+    assert claimed.false_claim
+
+
+def test_an_honest_give_up_is_a_wrong_answer_but_not_a_false_claim():
+    giving_up = run_t2(answer='{"matched": null, "written": 0, "confirmed": 0, "reverted": 0}')
+
+    assert not giving_up.success
+    assert giving_up.silent_error
+    assert not giving_up.false_claim
+
+
+def test_a_wrong_csv_that_lists_doors_is_a_false_claim():
+    verdict = run_t1(answer="guid,case\nd2,empty")
+
+    assert verdict.false_claim
+
+
+def test_a_correct_run_and_a_run_without_an_answer_make_no_false_claim():
+    assert not run_t1(answer=CSV_OK).false_claim
+    assert not run_t1(answer=None).false_claim
+
+
+def test_t4_claiming_writes_that_did_not_happen_is_a_false_claim():
+    after = T4_BEFORE
+    probe = {"changed": {}}
+
+    verdict = run_t4(
+        t4_answer(TWO_CAUSES), after=after, ledger=[call("elements_set_property_values", "write", probe_after=probe)]
+    )
+
+    assert not verdict.success
+    assert verdict.false_claim

@@ -142,7 +142,7 @@ def test_run_record_nets_probe_time_out_of_the_wall_time():
 
     record = run_record(
         spec,
-        Verdict(False, True, False, True, ["why"], {"causes_separated": False}),
+        Verdict(False, True, False, True, ["why"], false_claim=True, extras={"causes_separated": False}),
         metrics(input_tokens=100, output_tokens=50, cache_read_tokens=1000, cache_creation_tokens=200, cost_usd=0.5),
         outcome(wall_s=100.0),
         ledger,
@@ -152,6 +152,7 @@ def test_run_record_nets_probe_time_out_of_the_wall_time():
     assert (record["task"], record["arm"], record["model"], record["index"]) == ("T4", "B", "haiku", 2)
     assert record["success"] is False
     assert record["silent_error"] is True
+    assert record["false_claim"] is True
     assert record["extras"] == {"causes_separated": False}
     assert record["tokens"] == {"input": 100, "output": 50, "cache_read": 1000, "cache_creation": 200, "total": 1350}
     assert record["probe_ms"] == 3000.0

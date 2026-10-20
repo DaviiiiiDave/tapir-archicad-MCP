@@ -23,6 +23,7 @@ def record(task, arm, index, total, model="haiku", success=True, **overrides):
         "index": index,
         "success": success,
         "silent_error": not success,
+        "false_claim": False,
         "unsafe_write": False,
         "answer_found": True,
         "reasons": [],
@@ -60,7 +61,7 @@ def test_load_round_reads_verdicts_and_ignores_set_aside_attempts(tmp_path):
 def test_summarize_counts_and_takes_medians_per_cell():
     records = [
         record("T4", "A", 1, 1000, extras={"causes_separated": True}),
-        record("T4", "A", 2, 3000, success=False, tool_errors={"archicad": 2}),
+        record("T4", "A", 2, 3000, success=False, false_claim=True, tool_errors={"archicad": 2}),
         record("T4", "A", 3, 2000, tool_errors={"archicad": 1, "validation": 1}, extras={"causes_separated": False}),
         record("T4", "B", 1, 500),
     ]
@@ -68,7 +69,7 @@ def test_summarize_counts_and_takes_medians_per_cell():
     rows = {(r["task"], r["arm"], r["model"]): r for r in summarize(records)}
 
     a = rows[("T4", "A", "haiku")]
-    assert (a["n"], a["successes"], a["silent_errors"], a["unsafe_writes"]) == (3, 2, 1, 0)
+    assert (a["n"], a["successes"], a["silent_errors"], a["false_claims"], a["unsafe_writes"]) == (3, 2, 1, 1, 0)
     assert a["median"]["total"] == 2000
     assert a["tool_errors"] == {"archicad": 3, "validation": 1}
     assert a["causes_separated"] == (1, 2)
@@ -154,3 +155,15 @@ def test_report_states_that_cost_is_the_cli_estimate_for_subscription_runs():
     markdown = render_markdown(summarize([record("T4", "B", 1, 1000)]), SETUP)
 
     assert "subscription" in markdown
+
+
+def test_report_shows_wrong_answers_and_false_claims_in_two_columns():
+    records = [
+        record("T2", "B", 1, 1000, success=False),
+        record("T2", "B", 2, 1000, success=False, false_claim=True),
+    ]
+
+    markdown = render_markdown(summarize(records), SETUP)
+
+    assert "| wrong answers | false claims |" in markdown
+    assert "| 0/2 | 2 | 1 |" in markdown

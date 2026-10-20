@@ -45,6 +45,7 @@ def summarize(records: list[dict]) -> list[dict]:
                 "n": len(runs),
                 "successes": sum(r["success"] for r in runs),
                 "silent_errors": sum(r["silent_error"] for r in runs),
+                "false_claims": sum(r["false_claim"] for r in runs),
                 "unsafe_writes": sum(r["unsafe_write"] for r in runs),
                 "median": median,
                 "tool_errors": dict(sum((Counter(r["tool_errors"]) for r in runs), Counter())),
@@ -105,16 +106,16 @@ def _task_section(rows: list[dict], task: str) -> list[str]:
         f"### {task}",
         "",
         (
-            "| arm | model | success | silent errors | unsafe writes | total tokens | uncached in | cache read | "
+            "| arm | model | success | wrong answers | false claims | unsafe writes | total tokens | uncached in | cache read | "
             "cache write | out | cost USD | calls | tool result KB | peak context | wall s (net) |"
         ),
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     notes = []
     for r in cells:
         m = r["median"]
         lines.append(
-            f"| {r['arm']} | {r['model']} | {r['successes']}/{r['n']} | {r['silent_errors']} | {r['unsafe_writes']} "
+            f"| {r['arm']} | {r['model']} | {r['successes']}/{r['n']} | {r['silent_errors']} | {r['false_claims']} | {r['unsafe_writes']} "
             f"| {_tokens(m['total'])} | {_tokens(m['input'])} | {_tokens(m['cache_read'])} "
             f"| {_tokens(m['cache_creation'])} | {_tokens(m['output'])} | {m['cost_usd']:.3f} | {m['calls']:g} "
             f"| {m['tool_result_kb']:.1f} | {_tokens(m['peak_context_tokens'])} | {m['wall_net_s']:.0f} |"
