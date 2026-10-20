@@ -1,7 +1,7 @@
 # Benchmark settings shared by every machine. Machine paths live in local.toml (see local.example.toml).
 
 # The dedicated Archicad 29 instance ("Benchmark"). The harness and the proxy refuse every other port.
-bench_port = 19725
+bench_port = 19724
 runs_per_cell = 3
 # Kill switch per run, not an expectation. A run that hits it counts as failed.
 run_timeout_s = 1800
@@ -24,6 +24,27 @@ change_log_flag = false
 [arms.B]
 ref = "d7a8a67"
 change_log_flag = true
+
+# Fixture contents (plan Task 5). T4/T5 walls are 0.20 m thick, below T2's 0.24 m rule.
+[fixtures.german]
+t4_open = 40
+t4_locked = 10
+t4_hotlinked = 10
+t5_walls = 20
+t4_value = "REI 30"
+panel_value = "EI2 30"
+
+[fixtures.scale]
+walls_thick = 3000
+walls_thin = 2000
+thick = 0.30
+thin = 0.115
+doors = 1000
+batch = 500
+wall_value = "REI 30"
+door_value = "EI2 30"
+wall_states = { value = 2000, empty = 1500, undefined = 1500 }
+door_states = { value = 400, empty = 200, undefined = 200, not_available = 200 }
 
 # Measured on copies of Benchmark.pln (2026-10-20, Task 4 step 4).
 # - OpenProject on a saved copy returns without a dialog; the open itself took 27-45 s.
