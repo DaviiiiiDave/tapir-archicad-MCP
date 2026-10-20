@@ -1,13 +1,15 @@
 import json
+from typing import ClassVar
 
 import pytest
 from bench import runner
+from bench.driver import ClaudeOutcome
 from bench.runner import (
     RunSpec,
     UsageLimitReached,
     make_probe,
     plan_matrix,
-    reclassify_tool_errors,
+    rescore_round,
     run_record,
     run_round,
     usage_limit_reached,
@@ -200,23 +202,137 @@ def test_a_stopped_attempt_is_set_aside_before_the_run_starts(tmp_path):
     assert (kept[0] / "stream.jsonl").read_text(encoding="utf-8") == "half a stream"
 
 
-def test_reclassify_updates_only_the_tool_errors_of_a_round(tmp_path):
+def test_rescore_derives_every_verdict_again_from_the_stored_run(tmp_path):
+    import dataclasses
+
+    cfg = dataclasses.replace(make_config(tmp_path), oracle={"german": {}})
+    (cfg.data_dir / "fixtures").mkdir(parents=True)
+    manifest = {"property": {"id": "p"}, "doors": {"D1": "value", "D2": "empty"}}
+    (cfg.data_dir / "fixtures" / "scale.manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    round_dir = cfg.data_dir / "runs" / "r"
+    run = round_dir / "T1-A-haiku-1"
+    run.mkdir(parents=True)
     stream = lines(
         assistant("msg_1", [tool_use("toolu_1", "mcp__archicad__archicad_call_tool", {"name": "x", "arguments": {}})]),
         tool_result("toolu_1", "Port 19724 is not an active Archicad connection.", is_error=True),
-        result(),
+        result(text_value="Done.\n```csv\nguid,case\nd2,empty\n```"),
     )
-    run = tmp_path / "T1-A-haiku-1"
-    run.mkdir()
     (run / "stream.jsonl").write_text("\n".join(stream), encoding="utf-8")
-    (run / "verdict.json").write_text(
-        json.dumps({"run_id": "T1-A-haiku-1", "success": False, "tool_errors": {"transport": 1}}), encoding="utf-8"
-    )
-    (tmp_path / "T1-A-haiku-1.aborted-1").mkdir()
+    snapshot = {"doors": {"D1": ["value", "EI2 30"], "D2": ["empty", ""]}}
+    for name in ("before.json", "after.json"):
+        (run / name).write_text(json.dumps(snapshot), encoding="utf-8")
+    (run / "ledger.jsonl").write_text("", encoding="utf-8")
+    stale = {
+        "run_id": "T1-A-haiku-1",
+        "task": "T1",
+        "arm": "A",
+        "model": "haiku",
+        "index": 1,
+        "success": False,
+        "tool_errors": {"transport": 1},
+        "wall_s": 50.0,
+        "timed_out": False,
+    }
+    (run / "verdict.json").write_text(json.dumps(stale), encoding="utf-8")
+    (round_dir / "T1-A-haiku-1.aborted-1").mkdir()
 
-    changed = reclassify_tool_errors(tmp_path)
+    changed = rescore_round(cfg, "r")
 
-    assert changed == 1
     record = json.loads((run / "verdict.json").read_text(encoding="utf-8"))
-    assert record == {"run_id": "T1-A-haiku-1", "success": False, "tool_errors": {"not_discovered": 1}}
-    assert reclassify_tool_errors(tmp_path) == 0
+    assert changed == 1
+    assert record["success"] is True
+    assert record["tool_errors"] == {"not_discovered": 1}
+    assert (record["wall_s"], record["timed_out"]) == (50.0, False)
+    assert rescore_round(cfg, "r") == 0
+
+
+class FakeBenchAC:
+    """Stands in for BenchArchicad: records opens and saves, never talks to Archicad."""
+
+    events: ClassVar[list] = []
+
+    def __init__(self, *args, **kwargs):
+        self.opened = None
+
+    def open_project(self, path):
+        self.opened = path
+        FakeBenchAC.events.append(("open", path))
+
+    def save_project(self):
+        FakeBenchAC.events.append(("save", self.opened))
+
+
+def offline_run(monkeypatch, tmp_path, result_text, fail_in_claude=False):
+    """run_one with every live part replaced; returns the config."""
+    import dataclasses
+
+    cfg = dataclasses.replace(make_config(tmp_path), oracle={"german": {}})
+    fixtures = cfg.data_dir / "fixtures"
+    fixtures.mkdir(parents=True)
+    (fixtures / "german.pln").write_bytes(b"pln")
+    (fixtures / "german.manifest.json").write_text(json.dumps({"property": {"id": "p"}}), encoding="utf-8")
+    (cfg.data_dir / "kinds.json").write_text("{}", encoding="utf-8")
+    FakeBenchAC.events = []
+
+    def fake_run_claude(cfg_, command, prompt, run_dir, timeout_s):
+        if fail_in_claude:
+            raise RuntimeError("claude crashed")
+        stream = run_dir / "stream.jsonl"
+        stream.write_text("\n".join(lines(result(text_value=result_text))), encoding="utf-8")
+        return ClaudeOutcome(0, False, 1.0, stream, 1)
+
+    class Stoppable:
+        def stop(self):
+            pass
+
+    for name, value in {
+        "BenchArchicad": FakeBenchAC,
+        "snapshot": lambda *a, **k: {"walls": {}},
+        "start_process": lambda *a, **k: object(),
+        "wait_for_port": lambda *a, **k: None,
+        "kill_tree": lambda *a, **k: None,
+        "create_proxy_app": lambda *a, **k: None,
+        "serve_in_thread": lambda *a, **k: Stoppable(),
+        "write_mcp_config": lambda *a, **k: None,
+        "build_claude_command": lambda *a, **k: [],
+        "run_claude": fake_run_claude,
+    }.items():
+        monkeypatch.setattr(runner, name, value)
+    return cfg
+
+
+def test_a_usage_limit_saves_the_open_copy_and_keeps_it_out_of_the_run_dir(monkeypatch, tmp_path):
+    cfg = offline_run(monkeypatch, tmp_path, "Claude AI usage limit reached|1760000000")
+    spec = RunSpec("r", "T4", "A", "haiku", 1)
+
+    with pytest.raises(UsageLimitReached):
+        runner.run_one(cfg, spec)
+
+    (opened, saved) = FakeBenchAC.events
+    assert opened[0] == "open"
+    assert saved == ("save", opened[1])
+    run_dir = cfg.data_dir / "runs" / "r" / spec.run_id
+    assert run_dir not in opened[1].parents
+    assert not (run_dir / "verdict.json").exists()
+
+
+def test_a_crash_after_the_copy_is_open_still_saves_it(monkeypatch, tmp_path):
+    cfg = offline_run(monkeypatch, tmp_path, "", fail_in_claude=True)
+
+    with pytest.raises(RuntimeError, match="claude crashed"):
+        runner.run_one(cfg, RunSpec("r", "T4", "A", "haiku", 1))
+
+    assert [kind for kind, _ in FakeBenchAC.events] == ["open", "save"]
+
+
+def test_each_attempt_gets_its_own_project_copy(monkeypatch, tmp_path):
+    cfg = offline_run(monkeypatch, tmp_path, "Claude AI usage limit reached|1760000000")
+    spec = RunSpec("r", "T4", "A", "haiku", 1)
+
+    for _ in range(2):
+        with pytest.raises(UsageLimitReached):
+            runner.run_one(cfg, spec)
+
+    first, second = [path for kind, path in FakeBenchAC.events if kind == "open"]
+    assert first != second
+    assert first.exists() and second.exists()

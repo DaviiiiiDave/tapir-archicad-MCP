@@ -3,7 +3,7 @@ import socket
 
 import httpx
 import pytest
-from bench.proxy import ProxyRules, create_proxy_app, serve_in_thread
+from bench.proxy import MALFORMED, ProxyRules, create_proxy_app, serve_in_thread
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import Response
@@ -15,14 +15,19 @@ KINDS = {
     "elements_create_doors": "write",
     "elements_delete_elements": "irreversible",
     "project_open_project": "irreversible",
+    "favorites_export_favorites": "write",
+    "issues_export_issues_to_bcf": "write",
+    "project_print_view": "write",
+    "navigator_publish_publisher_set": "irreversible",
 }
 
 
 class FakeUpstream:
     """Answers every JSON-RPC request with a fixed tool result, framed as JSON or as one SSE event."""
 
-    def __init__(self, framing="json"):
+    def __init__(self, framing="json", error_ids=()):
         self.framing = framing
+        self.error_ids = set(error_ids)
         self.requests: list[dict] = []
         self.headers: list[dict] = []
         self.app = Starlette(routes=[Route("/mcp", self.handle, methods=["POST"])])
@@ -35,7 +40,7 @@ class FakeUpstream:
             payload = {
                 "jsonrpc": "2.0",
                 "id": body["id"],
-                "result": {"content": [{"type": "text", "text": "ok"}], "isError": False},
+                "result": {"content": [{"type": "text", "text": "ok"}], "isError": body["id"] in self.error_ids},
             }
         else:
             payload = {"jsonrpc": "2.0", "id": body.get("id"), "result": {"protocolVersion": "2025-06-18"}}
@@ -68,8 +73,8 @@ def result_of(response: httpx.Response) -> dict:
 
 @pytest.fixture
 def make_proxy(tmp_path):
-    def build(framing="json", drop=None, probe=None):
-        upstream = FakeUpstream(framing)
+    def build(framing="json", drop=None, probe=None, error_ids=()):
+        upstream = FakeUpstream(framing, error_ids)
         upstream_client = httpx.AsyncClient(transport=httpx.ASGITransport(app=upstream.app), base_url="http://upstream")
         ledger = tmp_path / "ledger.jsonl"
         rules = ProxyRules(bench_port=19725, kinds=KINDS, drop_first_response_of=drop)
@@ -247,3 +252,94 @@ async def test_batched_tool_calls_are_rejected(make_proxy):
 
     assert response.status_code == 400
     assert upstream.requests == []
+
+
+@pytest.mark.parametrize(
+    "inner",
+    [
+        json.dumps({"port": 19723, "params": {}}),
+        {"port": "19723", "params": {}},
+    ],
+    ids=["arguments-as-json-string", "port-as-string"],
+)
+@pytest.mark.asyncio
+async def test_another_port_in_any_shape_is_blocked(make_proxy, inner):
+    upstream, client, ledger = make_proxy()
+    request = call(1, "archicad_call_tool", {"name": "properties_set_property_values_of_elements", "arguments": inner})
+
+    response = await client.post("/mcp", json=request, headers=HEADERS)
+
+    assert upstream.requests == []
+    assert result_of(response)["result"]["isError"] is True
+    (entry,) = read_ledger(ledger)
+    assert entry["port"] == 19723
+    assert "19723" in entry["blocked"]
+    assert not entry["blocked"].startswith(MALFORMED)
+
+
+@pytest.mark.parametrize(
+    "inner",
+    ['{"port": 19725, "params": {}}}', {"params": {}}, {"port": True, "params": {}}, {"port": 19725.5}],
+    ids=["unparsable-string", "no-port", "bool-port", "float-port"],
+)
+@pytest.mark.asyncio
+async def test_a_call_without_a_readable_port_is_blocked_as_malformed(make_proxy, inner):
+    upstream, client, ledger = make_proxy()
+    request = call(1, "archicad_call_tool", {"name": "elements_get_all_elements", "arguments": inner})
+
+    await client.post("/mcp", json=request, headers=HEADERS)
+
+    assert upstream.requests == []
+    (entry,) = read_ledger(ledger)
+    assert entry["blocked"].startswith(MALFORMED)
+
+
+@pytest.mark.parametrize(
+    "inner",
+    [json.dumps({"port": 19725, "params": {}}), {"port": "19725", "params": {}}],
+    ids=["arguments-as-json-string", "port-as-string"],
+)
+@pytest.mark.asyncio
+async def test_the_benchmark_port_in_another_shape_passes(make_proxy, inner):
+    upstream, client, ledger = make_proxy()
+    request = call(1, "archicad_call_tool", {"name": "elements_get_all_elements", "arguments": inner})
+
+    await client.post("/mcp", json=request, headers=HEADERS)
+
+    assert len(upstream.requests) == 1
+    (entry,) = read_ledger(ledger)
+    assert (entry["port"], entry["blocked"]) == (19725, None)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "favorites_export_favorites",
+        "issues_export_issues_to_bcf",
+        "project_print_view",
+        "navigator_publish_publisher_set",
+    ],
+)
+@pytest.mark.asyncio
+async def test_commands_that_write_files_outside_the_project_are_blocked(make_proxy, command):
+    upstream, client, ledger = make_proxy()
+
+    await client.post("/mcp", json=archicad_call(1, command), headers=HEADERS)
+
+    assert upstream.requests == []
+    (entry,) = read_ledger(ledger)
+    assert entry["blocked"] is not None
+
+
+@pytest.mark.asyncio
+async def test_the_drop_waits_for_a_create_call_that_went_through(make_proxy):
+    _upstream, client, ledger = make_proxy(drop="elements_create_doors", error_ids={1})
+
+    await client.post("/mcp", json=archicad_call(1, "elements_create_doors"), headers=HEADERS)
+    await client.post(
+        "/mcp", json=archicad_call(2, "elements_create_doors", tool="archicad_read_tool"), headers=HEADERS
+    )
+    third = await client.post("/mcp", json=archicad_call(3, "elements_create_doors"), headers=HEADERS)
+
+    assert [e["dropped"] for e in read_ledger(ledger)] == [False, False, True]
+    assert "outcome is unknown" in result_of(third)["result"]["content"][0]["text"]

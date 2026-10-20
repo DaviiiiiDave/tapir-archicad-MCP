@@ -94,3 +94,25 @@ def test_save_writes_a_copy():
     ac.save_project()
 
     assert instance.log == [("SaveProject", {})]
+
+
+INNER_BASE = DATA / "sources" / "german-base.pln"
+
+
+def test_a_base_project_inside_the_data_dir_is_never_saved():
+    instance = Instance(INNER_BASE)
+    ac = BenchArchicad(19725, 19725, DATA, INNER_BASE, connect=instance.connect)
+
+    with pytest.raises(ValueError, match="base project"):
+        ac.save_project()
+    assert instance.log == []
+
+
+def test_a_base_project_inside_the_data_dir_is_never_opened():
+    copy = DATA / "runs" / "r1" / "project.pln"
+    instance = Instance(copy)
+    ac = BenchArchicad(19725, 19725, DATA, INNER_BASE, connect=instance.connect)
+
+    with pytest.raises(ValueError, match="base project"):
+        ac.open_project(INNER_BASE)
+    assert instance.log == []

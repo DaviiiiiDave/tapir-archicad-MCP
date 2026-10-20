@@ -25,9 +25,14 @@ from starlette.routing import Route
 
 BLOCKED_PREFIX = "[bench-proxy] blocked: "
 LOST_RESPONSE_TEXT = "Error: the connection to the server was lost before the response arrived. The outcome is unknown."
-BLOCKED_IRREVERSIBLE_GROUPS = frozenset({"project", "application", "teamwork", "ifc"})
+BLOCKED_IRREVERSIBLE_GROUPS = frozenset({"project", "application", "teamwork", "ifc", "navigator"})
+# Write commands that create files at a path the model chooses, outside the run copy.
+BLOCKED_COMMANDS = frozenset({"favorites_export_favorites", "issues_export_issues_to_bcf", "project_print_view"})
+# A blocked call whose port could not be read. It never reached Archicad, and it is no attempt on another instance.
+MALFORMED = "malformed call: "
 META_TOOLS = frozenset({"archicad_call_tool", "archicad_read_tool"})
 JOB_TOOL = "archicad_get_job"
+CALL_TOOL = "archicad_call_tool"
 WRITE_KINDS = frozenset({"write", "irreversible"})
 
 _SKIP_REQUEST_HEADERS = frozenset({"host", "content-length", "connection", "transfer-encoding", "accept-encoding"})
@@ -50,22 +55,41 @@ def kind_of(rules: ProxyRules, inner_command: str | None) -> str:
 
 
 def blocked_reason(rules: ProxyRules, inner_command: str | None, kind: str, port: int | None) -> str | None:
+    if inner_command is not None and port is None:
+        return MALFORMED + "no readable integer port in the call's arguments"
     if port is not None and port != rules.bench_port:
         return f"port {port} is not the benchmark instance (port {rules.bench_port})"
     if kind == "irreversible" and inner_command and inner_command.split("_", 1)[0] in BLOCKED_IRREVERSIBLE_GROUPS:
         return f"{inner_command} is not allowed in the benchmark"
+    if inner_command in BLOCKED_COMMANDS:
+        return f"{inner_command} writes files outside the run copy"
+    return None
+
+
+def _read_port(value) -> int | None:
+    """The port as the arm servers read it: an int, or a string of digits (pydantic's lax mode); no bool or float."""
+    if type(value) is int:
+        return value
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value)
     return None
 
 
 def _call_target(params: dict) -> tuple[str, str | None, int | None, dict]:
+    """Tool, inner Archicad command, port and arguments of a tools/call. Inner arguments sent as a JSON string are
+    parsed the way the arm servers parse them, so the port guard sees the port the server will use."""
     tool = params.get("name", "")
     arguments = params.get("arguments") or {}
     if tool in META_TOOLS:
-        inner_arguments = arguments.get("arguments") or {}
-        port = inner_arguments.get("port") if isinstance(inner_arguments, dict) else None
-        return tool, arguments.get("name"), port if isinstance(port, int) else None, arguments
-    port = arguments.get("port")
-    return tool, None, port if isinstance(port, int) else None, arguments
+        inner = arguments.get("arguments")
+        if isinstance(inner, str):
+            try:
+                inner = json.loads(inner)
+            except ValueError:
+                inner = None
+        port = _read_port(inner.get("port")) if isinstance(inner, dict) else None
+        return tool, arguments.get("name"), port, arguments
+    return tool, None, _read_port(arguments.get("port")), arguments
 
 
 def _is_response_to(message, request_id) -> bool:
@@ -220,7 +244,8 @@ def create_proxy_app(
         response = _find_response(content, content_type, request_id)
         entry["is_error"] = bool(response["result"].get("isError")) if response else None
 
-        if response and not state["dropped"] and inner is not None and inner == rules.drop_first_response_of:
+        went_through = response is not None and tool == CALL_TOOL and not response["result"].get("isError")
+        if went_through and not state["dropped"] and inner == rules.drop_first_response_of:
             state["dropped"] = True
             entry["dropped"] = True
             content = _replace_result(content, content_type, request_id, _error_result(LOST_RESPONSE_TEXT))

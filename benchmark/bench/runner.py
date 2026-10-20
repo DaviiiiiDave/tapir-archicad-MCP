@@ -141,17 +141,28 @@ def _tool_errors(metrics: RunMetrics) -> dict[str, int]:
     return dict(Counter(call.error_class for call in metrics.tool_calls if call.error_class))
 
 
-def reclassify_tool_errors(round_dir: Path) -> int:
-    """Re-derive `tool_errors` of every verdict from its stream, after the error classes changed. Nothing else in
-    the verdict is touched. Returns how many verdicts changed."""
+def rescore_round(cfg: BenchConfig, round_id: str) -> int:
+    """Derive every verdict of a finished round again from what the run stored (stream, snapshots, ledger), after
+    the scorers or the error classes changed. Wall time and timeout come from the old verdict; Archicad and Claude
+    Code are not touched. Returns how many verdicts changed."""
+    round_dir = cfg.data_dir / "runs" / round_id
     changed = 0
-    for run_dir in sorted(Path(round_dir).iterdir()):
+    for run_dir in sorted(round_dir.iterdir()):
         if not run_dir.is_dir() or ".aborted" in run_dir.name or not (run_dir / "verdict.json").exists():
             continue
-        record = json.loads((run_dir / "verdict.json").read_text(encoding="utf-8"))
-        metrics = parse_stream((run_dir / "stream.jsonl").read_text(encoding="utf-8").splitlines())
-        if record["tool_errors"] != _tool_errors(metrics):
-            record["tool_errors"] = _tool_errors(metrics)
+        old = json.loads((run_dir / "verdict.json").read_text(encoding="utf-8"))
+        spec = RunSpec(round_id, old["task"], old["arm"], old["model"], old["index"])
+        task = TASKS[spec.task_id]
+        manifest = json.loads((cfg.data_dir / "fixtures" / f"{task.fixture}.manifest.json").read_text(encoding="utf-8"))
+        stream = run_dir / "stream.jsonl"
+        metrics = parse_stream(stream.read_text(encoding="utf-8").splitlines())
+        outcome = ClaudeOutcome(0, old["timed_out"], old["wall_s"], stream, 0)
+        before, after = (json.loads((run_dir / n).read_text(encoding="utf-8")) for n in ("before.json", "after.json"))
+        ledger = [json.loads(line) for line in (run_dir / "ledger.jsonl").read_text(encoding="utf-8").splitlines()]
+        answer = parse_answer(metrics.result_text, task.answer_lang)
+        verdict = score(spec.task_id, answer, manifest, before, after, ledger, metrics, outcome)
+        record = run_record(spec, verdict, metrics, outcome, ledger)
+        if record != old:
             _write_json(run_dir / "verdict.json", record)
             changed += 1
     return changed
@@ -179,41 +190,49 @@ def run_one(cfg: BenchConfig, spec: RunSpec) -> Verdict:
     kinds = json.loads((cfg.data_dir / "kinds.json").read_text(encoding="utf-8"))
 
     ac = BenchArchicad(cfg.bench_port, cfg.bench_port, cfg.data_dir, cfg.base_project)
-    project = run_dir / "project.pln"
+    # The copy Archicad has open is locked, so it lives outside the run dir, one copy per attempt: setting a
+    # stopped attempt's run dir aside never has to move an open project.
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%f")
+    project = cfg.data_dir / "runs" / spec.round_id / "projects" / f"{spec.run_id}-{stamp}.pln"
+    project.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(cfg.data_dir / "fixtures" / f"{task.fixture}.pln", project)
+    (run_dir / "project.txt").write_text(str(project), encoding="utf-8")
     ac.open_project(project)
-    before = snapshot(ac, task, manifest, rule)
-    _write_json(run_dir / "before.json", before)
-
-    server_port, proxy_port = free_port(), free_port()
-    ledger_path = run_dir / "ledger.jsonl"
-    server = start_process(
-        server_command(cfg, spec.arm, server_port, run_dir), run_dir, os.environ.copy(), run_dir / "server.log"
-    )
     try:
-        wait_for_port(server_port, timeout_s=60)
-        app = create_proxy_app(
-            f"http://127.0.0.1:{server_port}",
-            ProxyRules(cfg.bench_port, kinds, task.drop_first_response_of),
-            ledger_path,
-            make_probe(ac, task, manifest, before, rule) if task.probe else None,
-        )
-        proxy = serve_in_thread(app, proxy_port)
-        try:
-            write_mcp_config(run_dir / "mcp.json", proxy_port)
-            command = build_claude_command(cfg, spec.model, run_dir / "mcp.json", system_prompt(cfg.bench_port))
-            outcome = run_claude(cfg, command, task.prompt, run_dir, cfg.run_timeout_s)
-        finally:
-            proxy.stop()
-    finally:
-        kill_tree(server)
+        before = snapshot(ac, task, manifest, rule)
+        _write_json(run_dir / "before.json", before)
 
-    metrics = parse_stream(outcome.stream_path.read_text(encoding="utf-8").splitlines())
-    if (limit := usage_limit_reached(metrics)) is not None:
-        raise limit
-    after = snapshot(ac, task, manifest, rule, like=before)
-    _write_json(run_dir / "after.json", after)
-    ac.save_project()
+        server_port, proxy_port = free_port(), free_port()
+        ledger_path = run_dir / "ledger.jsonl"
+        server = start_process(
+            server_command(cfg, spec.arm, server_port, run_dir), run_dir, os.environ.copy(), run_dir / "server.log"
+        )
+        try:
+            wait_for_port(server_port, timeout_s=60)
+            app = create_proxy_app(
+                f"http://127.0.0.1:{server_port}",
+                ProxyRules(cfg.bench_port, kinds, task.drop_first_response_of),
+                ledger_path,
+                make_probe(ac, task, manifest, before, rule) if task.probe else None,
+            )
+            proxy = serve_in_thread(app, proxy_port)
+            try:
+                write_mcp_config(run_dir / "mcp.json", proxy_port)
+                command = build_claude_command(cfg, spec.model, run_dir / "mcp.json", system_prompt(cfg.bench_port))
+                outcome = run_claude(cfg, command, task.prompt, run_dir, cfg.run_timeout_s)
+            finally:
+                proxy.stop()
+        finally:
+            kill_tree(server)
+
+        metrics = parse_stream(outcome.stream_path.read_text(encoding="utf-8").splitlines())
+        if (limit := usage_limit_reached(metrics)) is not None:
+            raise limit
+        after = snapshot(ac, task, manifest, rule, like=before)
+        _write_json(run_dir / "after.json", after)
+    finally:
+        # Saved on every path, a stop or a crash too: the next open must never meet unsaved changes (a dialog).
+        ac.save_project()
 
     ledger = (
         [json.loads(line) for line in ledger_path.read_text(encoding="utf-8").splitlines()]

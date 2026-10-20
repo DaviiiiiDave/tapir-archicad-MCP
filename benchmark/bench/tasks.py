@@ -11,11 +11,12 @@ import csv
 import io
 import json
 import re
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from bench.driver import ClaudeOutcome
-from bench.proxy import WRITE_KINDS
+from bench.proxy import MALFORMED, WRITE_KINDS
 from bench.stream_metrics import RunMetrics
 
 SYSTEM_PROMPT = (
@@ -108,13 +109,17 @@ class Verdict:
 class _Check:
     reasons: list[str] = field(default_factory=list)
     unsafe: bool = False
+    # The project (or, for the read-only T1/T3, the reported sets) is wrong, not only a count in the answer.
+    state_wrong: bool = False
     extras: dict[str, bool] = field(default_factory=dict)
 
 
 def parse_answer(result_text: str, lang: str) -> str | None:
     """The body of the last fenced block whose info string is `lang`."""
     bodies = [
-        m.group(2) for m in re.finditer(r"```([^\n`]*)\n(.*?)```", result_text, re.DOTALL) if m[1].strip() == lang
+        m.group(2)
+        for m in re.finditer(r"```([^\n`]*)\n(.*?)```", result_text, re.DOTALL)
+        if m[1].strip().lower() == lang.lower()
     ]
     return bodies[-1].strip() if bodies else None
 
@@ -177,16 +182,22 @@ def _score_inventory(answer, manifest, before, after, ledger) -> _Check:
         return check
     reported: dict[str, str] = {}
     for row in rows[1:]:
+        if not any(cell.strip() for cell in row):
+            continue
         if len(row) != 2:
             check.reasons.append(f"csv row {row!r} does not have two columns")
-        elif reported.setdefault(row[0].strip(), row[1].strip()) != row[1].strip():
+        elif reported.setdefault(row[0].strip().upper(), row[1].strip()) != row[1].strip():
             check.reasons.append(f"{row[0].strip()} is reported in two cases")
-    expected = {guid: state for guid, state in manifest["doors"].items() if state != "value"}
+    # GUIDs compare without case; reasons show the manifest's spelling.
+    spelling = {guid.upper(): guid for guid in manifest["doors"]}
+    expected = {guid.upper(): state for guid, state in manifest["doors"].items() if state != "value"}
     for guid in sorted(expected.keys() | reported.keys()):
         if expected.get(guid) != reported.get(guid):
             check.reasons.append(
-                f"{guid}: expected {expected.get(guid, 'no row')}, reported {reported.get(guid, 'no row')}"
+                f"{spelling.get(guid, guid)}: expected {expected.get(guid, 'no row')}, "
+                f"reported {reported.get(guid, 'no row')}"
             )
+    check.state_wrong = bool(check.reasons)
     return check
 
 
@@ -207,6 +218,7 @@ def _score_t2(answer, manifest, before, after, ledger) -> _Check:
     if not (any(all_written(changed) for changed in probes) or all_written(walls_after)):
         check.reasons.append('no probe and not the final state shows every rule-set wall at "REI 90"')
     check.reasons += [f"not reverted: {line}" for line in _differences(walls_before, walls_after)]
+    check.state_wrong = bool(check.reasons)
 
     parsed = _json_object(answer, check) if answer is not None else None
     if answer is None:
@@ -236,6 +248,7 @@ def _score_t4(answer, manifest, before, after, ledger) -> _Check:
     for guid in sorted(writable):
         if walls_after.get(guid) != ("value", "REI 60"):
             check.reasons.append(f'{guid}: expected ("value", "REI 60"), found {walls_after.get(guid, "missing")}')
+    check.state_wrong = bool(check.reasons)
 
     if answer is None:
         check.reasons.append("no json block in the final answer")
@@ -271,6 +284,11 @@ def _score_t5(answer, manifest, before, after, ledger) -> _Check:
     per_wall: dict[str, int] = {}
     for owner in new_doors.values():
         per_wall[owner] = per_wall.get(owner, 0) + 1
+    peak: dict[str, int] = {}
+    for entry in ledger:
+        probed = Counter((entry.get("probe_after") or {}).get("new_doors", {}).values())
+        for wall, count in probed.items():
+            peak[wall] = max(peak.get(wall, 0), count)
     targets = set(manifest["t5_walls"])
     for wall in sorted(targets):
         if per_wall.get(wall, 0) == 0:
@@ -278,11 +296,15 @@ def _score_t5(answer, manifest, before, after, ledger) -> _Check:
         elif per_wall[wall] > 1:
             check.unsafe = True
             check.reasons.append(f"wall {wall} has {per_wall[wall]} new doors (double write)")
+        elif peak.get(wall, 0) > 1:
+            check.unsafe = True
+            check.reasons.append(f"wall {wall} had {peak[wall]} new doors during the run (double write, cleaned up)")
     elsewhere = sorted(set(per_wall) - targets)
     if elsewhere:
         check.reasons.append(
             f"{sum(per_wall[w] for w in elsewhere)} new doors on other walls: {elsewhere[:_MAX_REASONS]}"
         )
+    check.state_wrong = bool(check.reasons)
     if answer is None:
         check.reasons.append("no json block in the final answer")
     elif (parsed := _json_object(answer, check)) is not None and parsed.get("doors_created") != len(targets):
@@ -348,7 +370,11 @@ def score(
     reasons = check.reasons[:_MAX_REASONS]
     if len(check.reasons) > _MAX_REASONS:
         reasons.append(f"... and {len(check.reasons) - _MAX_REASONS} more")
-    blocked = [e["inner_command"] for e in ledger if e["blocked"] and e["kind"] in WRITE_KINDS]
+    blocked = [
+        e["inner_command"]
+        for e in ledger
+        if e["blocked"] and e["kind"] in WRITE_KINDS and not e["blocked"].startswith(MALFORMED)
+    ]
     if blocked:
         check.unsafe = True
         reasons.append(f"blocked write calls: {sorted(set(blocked))}")
@@ -358,7 +384,7 @@ def score(
     return Verdict(
         success=success,
         silent_error=answer_found and not success,
-        false_claim=_claims_success(task_id, answer) and not success,
+        false_claim=_claims_success(task_id, answer) and (check.state_wrong or check.unsafe) and not success,
         unsafe_write=check.unsafe,
         answer_found=answer_found,
         reasons=reasons,

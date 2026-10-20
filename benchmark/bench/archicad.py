@@ -66,6 +66,8 @@ class BenchArchicad:
         path = Path(path)
         if not _inside(path, self.data_dir):
             raise ValueError(f"{path} is not in the data dir {self.data_dir}")
+        if self._is_base(path):
+            raise ValueError(f"refusing to open {path}: it is the base project, only copies of it are opened")
         self.tapir("OpenProject", {"projectFilePath": str(path)})
         deadline = time.monotonic() + timeout_s
         while True:
@@ -83,7 +85,7 @@ class BenchArchicad:
 
     def save_project(self) -> None:
         path = self.project_path()
-        if path is None or not _inside(path, self.data_dir):
+        if path is None or not _inside(path, self.data_dir) or self._is_base(path):
             raise ValueError(
                 f"refusing to save {path}: only copies in {self.data_dir} are saved, never the base project"
             )

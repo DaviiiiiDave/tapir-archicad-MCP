@@ -430,7 +430,7 @@
    "n": 3,
    "successes": 1,
    "silent_errors": 2,
-   "false_claims": 2,
+   "false_claims": 1,
    "unsafe_writes": 1,
    "median": {
     "total": 270131,
