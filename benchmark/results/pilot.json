@@ -1,0 +1,181 @@
+{
+ "setup": {
+  "round_id": "pilot",
+  "arms": {
+   "A": {
+    "ref": "v0.6.5",
+    "sha": "e04fc0ed9d1b7ae9939076d810cd9112fb43b761"
+   },
+   "B": {
+    "ref": "d7a8a67",
+    "sha": "d7a8a6735ad113d5393122b67c9a653bb49a6f87"
+   }
+  },
+  "models": {
+   "haiku": "claude-haiku-5-5",
+   "sonnet": "claude-sonnet-5-5"
+  },
+  "cli_version": "2.1.81 (Claude Code)",
+  "fixtures": {
+   "german": "7091383d36440c8890af61ca5a32cc6575882247c90b90f19f5afdb406d87c2d",
+   "international": "2cda4d49f3c7f91962fa61a00e8b00f9c2a18df8ecf91faa29b0365f75232c46",
+   "scale": "33453f8b967f473817bb821cce53543506d5b6e0cfb018e66db61232e0780334"
+  },
+  "baseline_tokens": {
+   "haiku": 189,
+   "sonnet": 189
+  },
+  "aborted_attempts": 0,
+  "stopped": null
+ },
+ "rows": [
+  {
+   "task": "T1",
+   "arm": "B",
+   "model": "haiku",
+   "n": 1,
+   "successes": 0,
+   "silent_errors": 1,
+   "unsafe_writes": 0,
+   "median": {
+    "total": 280526,
+    "input": 28,
+    "cache_read": 188272,
+    "cache_creation": 78739,
+    "output": 13487,
+    "cost_usd": 0.92356975,
+    "calls": 21,
+    "tool_result_kb": 129.572265625,
+    "peak_context_tokens": 78743,
+    "wall_net_s": 68.71658949999983
+   },
+   "tool_errors": {},
+   "causes_separated": null,
+   "budget_stops": 0,
+   "timeouts": 0,
+   "per_index_total": {
+    "1": 280526
+   }
+  },
+  {
+   "task": "T2",
+   "arm": "B",
+   "model": "haiku",
+   "n": 1,
+   "successes": 0,
+   "silent_errors": 1,
+   "unsafe_writes": 0,
+   "median": {
+    "total": 118312,
+    "input": 20,
+    "cache_read": 87034,
+    "cache_creation": 28852,
+    "output": 2406,
+    "cost_usd": 0.284092,
+    "calls": 12,
+    "tool_result_kb": 59.2119140625,
+    "peak_context_tokens": 30859,
+    "wall_net_s": 26.542732900001283
+   },
+   "tool_errors": {},
+   "causes_separated": null,
+   "budget_stops": 0,
+   "timeouts": 0,
+   "per_index_total": {
+    "1": 118312
+   }
+  },
+  {
+   "task": "T3",
+   "arm": "B",
+   "model": "haiku",
+   "n": 1,
+   "successes": 1,
+   "silent_errors": 0,
+   "unsafe_writes": 0,
+   "median": {
+    "total": 166260,
+    "input": 34,
+    "cache_read": 125366,
+    "cache_creation": 26795,
+    "output": 14065,
+    "cost_usd": 0.5819467500000001,
+    "calls": 23,
+    "tool_result_kb": 35.216796875,
+    "peak_context_tokens": 28804,
+    "wall_net_s": 78.00577770000018
+   },
+   "tool_errors": {
+    "validation": 4
+   },
+   "causes_separated": null,
+   "budget_stops": 0,
+   "timeouts": 0,
+   "per_index_total": {
+    "1": 166260
+   }
+  },
+  {
+   "task": "T4",
+   "arm": "B",
+   "model": "haiku",
+   "n": 1,
+   "successes": 1,
+   "silent_errors": 0,
+   "unsafe_writes": 0,
+   "median": {
+    "total": 100537,
+    "input": 24,
+    "cache_read": 67031,
+    "cache_creation": 23939,
+    "output": 9543,
+    "cost_usd": 0.4218292500000001,
+    "calls": 13,
+    "tool_result_kb": 32.86328125,
+    "peak_context_tokens": 25948,
+    "wall_net_s": 45.2888744999982
+   },
+   "tool_errors": {},
+   "causes_separated": [
+    0,
+    1
+   ],
+   "budget_stops": 0,
+   "timeouts": 0,
+   "per_index_total": {
+    "1": 100537
+   }
+  },
+  {
+   "task": "T5",
+   "arm": "B",
+   "model": "haiku",
+   "n": 1,
+   "successes": 1,
+   "silent_errors": 0,
+   "unsafe_writes": 0,
+   "median": {
+    "total": 560379,
+    "input": 44,
+    "cache_read": 473172,
+    "cache_creation": 71042,
+    "output": 16121,
+    "cost_usd": 1.0838434999999997,
+    "calls": 23,
+    "tool_result_kb": 122.3955078125,
+    "peak_context_tokens": 73051,
+    "wall_net_s": 87.84385769999972
+   },
+   "tool_errors": {
+    "validation": 1,
+    "transport": 1
+   },
+   "causes_separated": null,
+   "budget_stops": 0,
+   "timeouts": 0,
+   "per_index_total": {
+    "1": 560379
+   }
+  }
+ ]
+}

@@ -1,0 +1,83 @@
+# Benchmark settings shared by every machine. Machine paths live in local.toml (see local.example.toml).
+
+# The dedicated Archicad 29 instance ("Benchmark"). The harness and the proxy refuse every other port.
+bench_port = 19724
+runs_per_cell = 3
+# Kill switch per run, not an expectation. A run that hits it counts as failed.
+run_timeout_s = 1800
+
+# Full model IDs; aliases resolve differently between CLI versions.
+[models]
+haiku = "claude-haiku-5-5"
+sonnet = "claude-sonnet-5-5"
+
+# --max-budget-usd per run. Kill switch, not an expectation.
+[budgets_usd]
+haiku = 2.0
+sonnet = 6.0
+
+# A: upstream v0.6.5. B: plan 1 (runtime hygiene), final commit after its review.
+[arms.A]
+ref = "v0.6.5"
+change_log_flag = false
+
+[arms.B]
+ref = "d7a8a67"
+change_log_flag = true
+
+# Fixture contents (plan Task 5). T4/T5 walls are 0.20 m thick, below T2's 0.24 m rule.
+[fixtures.german]
+t4_open = 40
+t4_locked = 10
+t4_hotlinked = 10
+t5_walls = 20
+t4_value = "REI 30"
+panel_value = "EI2 30"
+
+[fixtures.scale]
+walls_thick = 3000
+walls_thin = 2000
+thick = 0.30
+thin = 0.115
+doors = 1000
+batch = 500
+wall_value = "REI 30"
+door_value = "EI2 30"
+wall_states = { value = 2000, empty = 1500, undefined = 1500 }
+door_states = { value = 400, empty = 200, undefined = 200, not_available = 200 }
+
+# TestProject's fire property is a singleChoiceEnumeration (default "20 minutes"): it has no empty state.
+[fixtures.international]
+walls = 40
+value_type = "singleEnum"
+door_value = "1 hour"
+door_states = { value = 20, undefined = 10, not_available = 10 }
+
+# Measured on copies of Benchmark.pln (2026-10-20, Task 4 step 4).
+# - OpenProject on a saved copy returns without a dialog; the open itself took 27-45 s.
+# - New walls and doors get a classification item that is in the fire property's availability,
+#   and their fire property starts as userUndefined.
+# - Removing the classification makes the property notAvailable.
+# - Empty, userUndefined and normal values can be set through the official SetPropertyValuesOfElements.
+[oracle.german]
+classification_system = "B6636241-937D-234D-902F-2D30E4BD0FB8"
+fire_property_group = "Allgemeine Werte"
+fire_property_name = "Feuerwiderstandsklasse 13501-2"
+not_available_by = "remove_classification"
+# Curtain-wall door panels (measured on Dave's curtain wall, 8 door panels of 18): built-in "Paneel-Typ" shows
+# "Fassaden Tür"; glass panels show "Integriertes Fassaden-Paneel". The official API supports neither reading,
+# writing nor classifying panels (error 7203); Tapir does all three, values as display strings.
+door_panel_group = "Fassadenpaneel"
+door_panel_property = "Paneel-Typ"
+door_panel_value = "Fassaden Tür"
+
+# Measured on TestProject opened in German Archicad (2026-10-20): one classification system, the fire property is
+# available for 137 items (incl. Door, Wall). Built-in names stay German, so the door-panel rule is the same.
+[oracle.international]
+classification_system = "632C30E5-2B82-4A75-BFAD-D52FEBCE9A4A"
+fire_property_group = "GENERAL RATINGS"
+fire_property_name = "Fire Resistance Rating"
+not_available_by = "remove_classification"
+door_panel_group = "Fassadenpaneel"
+door_panel_property = "Paneel-Typ"
+door_panel_value = "Fassaden Tür"

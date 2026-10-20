@@ -12,3 +12,6 @@ wheels/
 
 # Packed desktop extensions
 *.mcpb
+
+# Benchmark machine paths
+benchmark/local.toml
