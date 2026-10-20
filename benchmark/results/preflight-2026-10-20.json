@@ -1,0 +1,92 @@
+{
+  "time": "20261019T222826Z",
+  "cli_version": "2.1.81 (Claude Code)",
+  "models": {
+    "haiku": {
+      "id": "claude-haiku-5-5",
+      "baseline_tokens": {
+        "input": 185,
+        "cache_read": 0,
+        "cache_creation": 0,
+        "output": 4,
+        "total": 189
+      },
+      "context_probe": "NONE"
+    },
+    "sonnet": {
+      "id": "claude-sonnet-5-5",
+      "baseline_tokens": {
+        "input": 185,
+        "cache_read": 0,
+        "cache_creation": 0,
+        "output": 4,
+        "total": 189
+      },
+      "context_probe": "NONE"
+    }
+  },
+  "arms": {
+    "A": {
+      "ref": "v0.6.5",
+      "sha": "e04fc0ed9d1b7ae9939076d810cd9112fb43b761",
+      "models": {
+        "haiku": {
+          "tokens": {
+            "input": 6,
+            "cache_read": 1683,
+            "cache_creation": 2090,
+            "output": 57,
+            "total": 3836
+          },
+          "calls": [
+            "discovery_list_active_archicads"
+          ]
+        },
+        "sonnet": {
+          "tokens": {
+            "input": 6,
+            "cache_read": 1683,
+            "cache_creation": 2090,
+            "output": 148,
+            "total": 3927
+          },
+          "calls": [
+            "discovery_list_active_archicads"
+          ]
+        }
+      }
+    },
+    "B": {
+      "ref": "d7a8a67",
+      "sha": "d7a8a6735ad113d5393122b67c9a653bb49a6f87",
+      "models": {
+        "haiku": {
+          "tokens": {
+            "input": 6,
+            "cache_read": 2165,
+            "cache_creation": 2575,
+            "output": 57,
+            "total": 4803
+          },
+          "calls": [
+            "discovery_list_active_archicads"
+          ]
+        },
+        "sonnet": {
+          "tokens": {
+            "input": 6,
+            "cache_read": 2165,
+            "cache_creation": 2575,
+            "output": 127,
+            "total": 4873
+          },
+          "calls": [
+            "discovery_list_active_archicads"
+          ]
+        }
+      }
+    }
+  },
+  "problems": [],
+  "ok": true
+}

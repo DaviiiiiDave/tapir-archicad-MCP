@@ -1,3 +1,4 @@
 plan: docs/superpowers/plans/2026-10-19-runtime-hygiene.md
+spec: docs/superpowers/specs/2026-10-19-token-efficient-element-sets-design.md
 stages:
   current: 5
