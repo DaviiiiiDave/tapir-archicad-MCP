@@ -167,3 +167,43 @@ def test_report_shows_wrong_answers_and_false_claims_in_two_columns():
 
     assert "| wrong answers | false claims |" in markdown
     assert "| 0/2 | 2 | 1 |" in markdown
+
+
+def test_ratios_over_failed_runs_are_marked_as_not_a_saving():
+    records = []
+    for index in (1, 2, 3):
+        records.append(record("T2", "A", index, 1_000_000, success=False))
+        records.append(record("T2", "B", index, 90_000, success=False))
+
+    markdown = render_markdown(summarize(records), SETUP)
+
+    row = next(line for line in markdown.splitlines() if line.startswith("| T2 | haiku |"))
+    assert "| 0/3 | 0/3 |" in row
+    assert "0.09 *" in row
+    assert "* At least one arm failed runs" in markdown
+
+
+def test_ratios_where_both_arms_solve_every_run_carry_no_mark():
+    records = [record("T4", arm, i, 1000) for arm in ("A", "B") for i in (1, 2, 3)]
+
+    markdown = render_markdown(summarize(records), SETUP)
+
+    row = next(line for line in markdown.splitlines() if line.startswith("| T4 | haiku |"))
+    assert "| 3/3 | 3/3 | 1.00 |" in row
+
+
+def test_runs_without_a_result_are_left_out_of_the_medians_and_never_crash_the_report():
+    unfinished = {"result_subtype": None, "cost_usd": 0.0}
+    records = [
+        record("T4", "A", 1, 0, success=False, **unfinished),
+        record("T4", "A", 2, 0, success=False, **unfinished),
+        record("T4", "B", 1, 1000),
+        record("T4", "B", 2, 1000),
+    ]
+
+    rows = {(r["arm"]): r for r in summarize(records)}
+    markdown = render_markdown(summarize(records), SETUP)
+
+    assert rows["A"]["median"]["total"] is None
+    assert rows["A"]["unfinished"] == 2
+    assert "n/a" in markdown

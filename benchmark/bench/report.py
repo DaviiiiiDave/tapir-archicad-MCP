@@ -15,6 +15,10 @@ SMALL_TASK_LIMIT = 1.10
 _MEDIAN_KEYS = ("total", "input", "cache_read", "cache_creation", "output")
 _TASK_ORDER = ("T1", "T2", "T3", "T4", "T5")
 _NEEDS_BOTH_ARMS = "No cell has both arms yet."
+_FAILED_RUNS_NOTE = (
+    "* At least one arm failed runs in this cell: the ratio compares failed attempts (often a model giving up "
+    "early), not the cost of a solution."
+)
 
 
 def load_round(round_dir: Path) -> list[dict]:
@@ -26,6 +30,11 @@ def load_round(round_dir: Path) -> list[dict]:
     ]
 
 
+def _median(values) -> float | None:
+    values = list(values)
+    return statistics.median(values) if values else None
+
+
 def summarize(records: list[dict]) -> list[dict]:
     """One row per task x arm x model."""
     cells: dict[tuple, list[dict]] = {}
@@ -33,9 +42,11 @@ def summarize(records: list[dict]) -> list[dict]:
         cells.setdefault((rec["task"], rec["arm"], rec["model"]), []).append(rec)
     rows = []
     for (task, arm, model), runs in sorted(cells.items()):
-        median = {key: statistics.median(r["tokens"][key] for r in runs) for key in _MEDIAN_KEYS}
+        # A run without a result event has placeholder usage and no cost; it stays out of every median.
+        finished = [r for r in runs if r["result_subtype"] is not None]
+        median = {key: _median(r["tokens"][key] for r in finished) for key in _MEDIAN_KEYS}
         for key in ("cost_usd", "calls", "tool_result_kb", "peak_context_tokens", "wall_net_s"):
-            median[key] = statistics.median(r[key] for r in runs)
+            median[key] = _median(r[key] for r in finished)
         separated = [r["extras"]["causes_separated"] for r in runs if "causes_separated" in r["extras"]]
         rows.append(
             {
@@ -52,7 +63,8 @@ def summarize(records: list[dict]) -> list[dict]:
                 "causes_separated": (sum(separated), len(separated)) if separated else None,
                 "budget_stops": sum(r["result_subtype"] == "error_max_budget_usd" for r in runs),
                 "timeouts": sum(r["timed_out"] for r in runs),
-                "per_index_total": {r["index"]: r["tokens"]["total"] for r in runs},
+                "unfinished": len(runs) - len(finished),
+                "per_index_total": {r["index"]: r["tokens"]["total"] for r in finished},
             }
         )
     return rows
@@ -70,8 +82,20 @@ def paired_bootstrap_ci(
     return means[int(0.025 * (resamples - 1))], means[int(0.975 * (resamples - 1))]
 
 
-def _tokens(value: float) -> str:
-    return f"{value:,.0f}"
+def _num(value: float | None, spec: str) -> str:
+    return "n/a" if value is None else format(value, spec)
+
+
+def _tokens(value: float | None) -> str:
+    return _num(value, ",.0f")
+
+
+def _ratio(b: float | None, a: float | None) -> float | None:
+    return None if a in (None, 0) or b is None else b / a
+
+
+def _solved_all(*cells: dict) -> bool:
+    return all(cell["successes"] == cell["n"] for cell in cells)
 
 
 def _cell(rows: list[dict], task: str, arm: str, model: str) -> dict | None:
@@ -117,8 +141,9 @@ def _task_section(rows: list[dict], task: str) -> list[str]:
         lines.append(
             f"| {r['arm']} | {r['model']} | {r['successes']}/{r['n']} | {r['silent_errors']} | {r['false_claims']} | {r['unsafe_writes']} "
             f"| {_tokens(m['total'])} | {_tokens(m['input'])} | {_tokens(m['cache_read'])} "
-            f"| {_tokens(m['cache_creation'])} | {_tokens(m['output'])} | {m['cost_usd']:.3f} | {m['calls']:g} "
-            f"| {m['tool_result_kb']:.1f} | {_tokens(m['peak_context_tokens'])} | {m['wall_net_s']:.0f} |"
+            f"| {_tokens(m['cache_creation'])} | {_tokens(m['output'])} | {_num(m['cost_usd'], '.3f')} "
+            f"| {_num(m['calls'], 'g')} | {_num(m['tool_result_kb'], '.1f')} | {_tokens(m['peak_context_tokens'])} "
+            f"| {_num(m['wall_net_s'], '.0f')} |"
         )
         if r["tool_errors"]:
             notes.append(
@@ -156,17 +181,22 @@ def _ratio_section(rows: list[dict]) -> list[str]:
                 low, high = paired_bootstrap_ci(pairs)
                 mean = statistics.fmean(second - first for first, second in pairs)
                 interval = f"{mean:+,.0f} [{low:+,.0f}, {high:+,.0f}]"
+            mark = "" if _solved_all(a, b) else " *"
+            tokens = _ratio(b["median"]["total"], a["median"]["total"])
+            cost = _ratio(b["median"]["cost_usd"], a["median"]["cost_usd"])
             table.append(
-                f"| {task} | {model} | {b['median']['total'] / a['median']['total']:.2f} "
-                f"| {b['median']['cost_usd'] / a['median']['cost_usd']:.2f} | {interval} | {len(pairs)} |"
+                f"| {task} | {model} | {a['successes']}/{a['n']} | {b['successes']}/{b['n']} "
+                f"| {_num(tokens, '.2f')}{mark if tokens is not None else ''} "
+                f"| {_num(cost, '.2f')}{mark if cost is not None else ''} | {interval} | {len(pairs)} |"
             )
     if not table:
         return [*lines, _NEEDS_BOTH_ARMS, ""]
     header = [
-        "| task | model | tokens B/A | cost B/A | mean diff B - A (95% CI) | pairs |",
-        "|---|---|---|---|---|---|",
+        "| task | model | success A | success B | tokens B/A | cost B/A | mean diff B - A (95% CI) | pairs |",
+        "|---|---|---|---|---|---|---|---|",
     ]
-    return [*lines, *header, *table, ""]
+    footnote = [_FAILED_RUNS_NOTE] if any(" *" in row for row in table) else []
+    return [*lines, *header, *table, "", *footnote, ""]
 
 
 def _small_task_section(rows: list[dict]) -> list[str]:
@@ -176,10 +206,17 @@ def _small_task_section(rows: list[dict]) -> list[str]:
             a, b = _cell(rows, task, "A", model), _cell(rows, task, "B", model)
             if not a or not b:
                 continue
-            ratio = b["median"]["total"] / a["median"]["total"]
+            ratio = _ratio(b["median"]["total"], a["median"]["total"])
+            if ratio is None:
+                lines.append(f"- {task} / {model}: B/A n/a - no finished runs to compare")
+                continue
+            mark = "" if _solved_all(a, b) else " *"
             verdict = "REGRESSION" if ratio > SMALL_TASK_LIMIT else "ok"
-            lines.append(f"- {task} / {model}: B/A {ratio:.2f} - {verdict}")
-    return [*lines, *([] if len(lines) > 2 else [_NEEDS_BOTH_ARMS]), ""]
+            lines.append(f"- {task} / {model}: B/A {ratio:.2f}{mark} - {verdict}")
+    if len(lines) == 2:
+        return [*lines, _NEEDS_BOTH_ARMS, ""]
+    footnote = ["", _FAILED_RUNS_NOTE] if any(line.endswith(("* - ok", "* - REGRESSION")) for line in lines) else []
+    return [*lines, *footnote, ""]
 
 
 def render_markdown(summary: list[dict], setup: dict) -> str:
@@ -197,6 +234,7 @@ def render_markdown(summary: list[dict], setup: dict) -> str:
         "",
         f"- Budget stops: {sum(r['budget_stops'] for r in summary)}",
         f"- Timeouts: {sum(r['timeouts'] for r in summary)}",
+        f"- Runs without a result (left out of the medians): {sum(r['unfinished'] for r in summary)}",
         f"- Attempts set aside after a usage-limit stop: {setup.get('aborted_attempts', 0)}",
     ]
     if setup.get("stopped"):

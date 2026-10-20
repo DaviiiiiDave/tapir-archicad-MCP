@@ -19,6 +19,7 @@ KINDS = {
     "issues_export_issues_to_bcf": "write",
     "project_print_view": "write",
     "navigator_publish_publisher_set": "irreversible",
+    "app_quit_archicad": "irreversible",
 }
 
 
@@ -343,3 +344,14 @@ async def test_the_drop_waits_for_a_create_call_that_went_through(make_proxy):
 
     assert [e["dropped"] for e in read_ledger(ledger)] == [False, False, True]
     assert "outcome is unknown" in result_of(third)["result"]["content"][0]["text"]
+
+
+@pytest.mark.asyncio
+async def test_app_irreversible_commands_are_blocked(make_proxy):
+    upstream, client, ledger = make_proxy()
+
+    await client.post("/mcp", json=archicad_call(1, "app_quit_archicad"), headers=HEADERS)
+
+    assert upstream.requests == []
+    (entry,) = read_ledger(ledger)
+    assert entry["blocked"] is not None

@@ -25,7 +25,8 @@ from starlette.routing import Route
 
 BLOCKED_PREFIX = "[bench-proxy] blocked: "
 LOST_RESPONSE_TEXT = "Error: the connection to the server was lost before the response arrived. The outcome is unknown."
-BLOCKED_IRREVERSIBLE_GROUPS = frozenset({"project", "application", "teamwork", "ifc", "navigator"})
+# Command-name prefixes: the application group is named "app_".
+BLOCKED_IRREVERSIBLE_GROUPS = frozenset({"project", "app", "teamwork", "ifc", "navigator"})
 # Write commands that create files at a path the model chooses, outside the run copy.
 BLOCKED_COMMANDS = frozenset({"favorites_export_favorites", "issues_export_issues_to_bcf", "project_print_view"})
 # A blocked call whose port could not be read. It never reached Archicad, and it is no attempt on another instance.

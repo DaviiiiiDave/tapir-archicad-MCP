@@ -5,8 +5,10 @@ import pytest
 from bench import runner
 from bench.driver import ClaudeOutcome
 from bench.runner import (
+    InfrastructureFailure,
     RunSpec,
     UsageLimitReached,
+    infrastructure_failure,
     make_probe,
     plan_matrix,
     rescore_round,
@@ -262,7 +264,7 @@ class FakeBenchAC:
         FakeBenchAC.events.append(("save", self.opened))
 
 
-def offline_run(monkeypatch, tmp_path, result_text, fail_in_claude=False):
+def offline_run(monkeypatch, tmp_path, result_text, fail_in_claude=False, is_error=False):
     """run_one with every live part replaced; returns the config."""
     import dataclasses
 
@@ -278,7 +280,7 @@ def offline_run(monkeypatch, tmp_path, result_text, fail_in_claude=False):
         if fail_in_claude:
             raise RuntimeError("claude crashed")
         stream = run_dir / "stream.jsonl"
-        stream.write_text("\n".join(lines(result(text_value=result_text))), encoding="utf-8")
+        stream.write_text("\n".join(lines(result(text_value=result_text, is_error=is_error))), encoding="utf-8")
         return ClaudeOutcome(0, False, 1.0, stream, 1)
 
     class Stoppable:
@@ -336,3 +338,42 @@ def test_each_attempt_gets_its_own_project_copy(monkeypatch, tmp_path):
     first, second = [path for kind, path in FakeBenchAC.events if kind == "open"]
     assert first != second
     assert first.exists() and second.exists()
+
+
+@pytest.mark.parametrize(
+    ("overrides", "stops"),
+    [
+        ({"is_error": True, "result_text": "API Error: 529 overloaded"}, True),
+        ({"complete": False, "result_subtype": None, "result_text": ""}, True),
+        ({"is_error": True, "result_text": "error", "tool_calls": ["one call"]}, False),
+        ({"result_text": "I will not do this."}, False),
+    ],
+)
+def test_an_error_before_any_tool_call_is_an_infrastructure_failure(overrides, stops):
+    found = infrastructure_failure(metrics(**overrides))
+
+    assert (found is not None) is stops
+
+
+def test_round_stops_on_an_infrastructure_failure_too(tmp_path):
+    cfg = make_config(tmp_path)
+    specs = plan_matrix(["T1"], ["A"], ["haiku"], runs=2, round_id="r")
+
+    def run_one(cfg_, spec):
+        raise InfrastructureFailure("error_during_execution", "API Error: 529 overloaded", None)
+
+    result = run_round(cfg, "r", specs, run_one=run_one)
+
+    assert result.done == []
+    stopped = json.loads((cfg.data_dir / "runs" / "r" / "stopped.json").read_text(encoding="utf-8"))
+    assert stopped["run_id"] == specs[0].run_id
+    assert "529" in stopped["message"]
+
+
+def test_run_one_raises_an_infrastructure_failure_and_still_saves(monkeypatch, tmp_path):
+    cfg = offline_run(monkeypatch, tmp_path, "API Error: 529 overloaded", is_error=True)
+
+    with pytest.raises(InfrastructureFailure):
+        runner.run_one(cfg, RunSpec("r", "T4", "A", "haiku", 1))
+
+    assert [kind for kind, _ in FakeBenchAC.events] == ["open", "save"]

@@ -50,12 +50,28 @@ def plan_matrix(
     ]
 
 
-class UsageLimitReached(Exception):
+class RoundStopped(Exception):
+    """The run could not be measured; the round stops without a verdict for it and resumes with it."""
+
     def __init__(self, status: str | None, message: str, resets_at: str | None) -> None:
-        super().__init__(f"usage limit reached ({status}): {message}")
+        super().__init__(f"{type(self).__name__} ({status}): {message}")
         self.status = status
         self.message = message
         self.resets_at = resets_at
+
+
+class UsageLimitReached(RoundStopped):
+    pass
+
+
+class InfrastructureFailure(RoundStopped):
+    """An error before the model made a single tool call: login, credit, an API outage, a CLI that did not start."""
+
+
+def infrastructure_failure(metrics: RunMetrics) -> InfrastructureFailure | None:
+    if metrics.tool_calls or (metrics.complete and metrics.result_subtype == "success" and not metrics.is_error):
+        return None
+    return InfrastructureFailure(metrics.result_subtype or "no result", metrics.result_text[:500], None)
 
 
 def usage_limit_reached(metrics: RunMetrics) -> UsageLimitReached | None:
@@ -226,8 +242,8 @@ def run_one(cfg: BenchConfig, spec: RunSpec) -> Verdict:
             kill_tree(server)
 
         metrics = parse_stream(outcome.stream_path.read_text(encoding="utf-8").splitlines())
-        if (limit := usage_limit_reached(metrics)) is not None:
-            raise limit
+        if (stop := usage_limit_reached(metrics) or infrastructure_failure(metrics)) is not None:
+            raise stop
         after = snapshot(ac, task, manifest, rule, like=before)
         _write_json(run_dir / "after.json", after)
     finally:
@@ -271,16 +287,19 @@ def run_round(
             continue
         try:
             verdict = run_one(cfg, spec)
-        except UsageLimitReached as limit:
+        except RoundStopped as stop:
             result.stopped = {
                 "time": datetime.now(UTC).isoformat(),
                 "run_id": spec.run_id,
-                "status": limit.status,
-                "message": limit.message,
-                "resets_at": limit.resets_at,
+                "kind": type(stop).__name__,
+                "status": stop.status,
+                "message": stop.message,
+                "resets_at": stop.resets_at,
             }
             _write_json(round_dir / "stopped.json", result.stopped)
-            print(f"[{position}/{len(specs)}] {spec.run_id}: usage limit reached, resets at {limit.resets_at}")
+            print(
+                f"[{position}/{len(specs)}] {spec.run_id}: stopped ({type(stop).__name__}), resets at {stop.resets_at}"
+            )
             return result
         result.done.append(spec.run_id)
         print(f"[{position}/{len(specs)}] {spec.run_id}: {'ok' if verdict.success else 'FAILED'} {verdict.reasons[:2]}")
