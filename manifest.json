@@ -49,7 +49,7 @@
     },
     {
       "name": "archicad_list_commands",
-      "description": "Lists all available Archicad API commands."
+      "description": "Lists Archicad API commands with their kind (read, write or irreversible). Filter by query or group."
     },
     {
       "name": "archicad_get_command_schema",
@@ -61,7 +61,7 @@
     },
     {
       "name": "archicad_read_tool",
-      "description": "Executes an Archicad API command that does not change the project, so clients can allow it without a prompt."
+      "description": "Executes an Archicad API command that does not change project data or files (it may change the selection or view), so clients can allow it without a prompt."
     },
     {
       "name": "archicad_get_job",

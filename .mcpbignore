@@ -11,6 +11,9 @@ dist/
 context/
 tests/
 scripts/
+benchmark/
+docs/
+.atrium.yaml
 *.mcpb
 server/lib/
 server/venv/

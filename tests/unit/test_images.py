@@ -8,7 +8,10 @@ from tapir_archicad_mcp.tools.custom.functions import archicad_get_job, archicad
 
 # 1x1 PNG
 PNG_B64 = base64.b64encode(
-    bytes.fromhex("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000001e221bc330000000049454e44ae426082")
+    bytes.fromhex(
+        "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c63600000"
+        "02000001e221bc330000000049454e44ae426082"
+    )
 ).decode()
 JPG_B64 = base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 16).decode()
 PREVIEW_ARGS = {"port": 19723, "params": {"elementId": {"guid": "00000000-0000-0000-0000-000000000001"}}}

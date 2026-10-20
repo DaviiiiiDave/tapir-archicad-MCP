@@ -1,12 +1,8 @@
-import sys
 from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parents[2] / "scripts"))
-
-from generate_tools import classify_command  # noqa: E402
-from generator_config import OFFICIAL_CONFIG, TAPIR_CONFIG, ApiSourceConfig  # noqa: E402
+from generate_tools import classify_command
+from generator_config import OFFICIAL_CONFIG, TAPIR_CONFIG, ApiSourceConfig
 
 
 def _config(**lists: set[str]) -> ApiSourceConfig:

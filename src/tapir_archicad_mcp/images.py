@@ -47,7 +47,8 @@ def extract_images(tool_name: str, result: Any) -> tuple[Any, list[str]]:
 
 
 def image_content(data: str) -> ImageContent:
-    # Archicad only produces png and jpg; both announce themselves in the first base64 characters.
+    # The image commands offer png and jpg (png by default); both announce themselves in the first base64
+    # characters (PNG `iVBOR`, JPEG `/9j/`). Anything else falls back to png.
     mime_type = "image/jpeg" if data.startswith("/9j/") else "image/png"
     return ImageContent(type="image", data=data, mime_type=mime_type)
 

@@ -90,8 +90,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--change-log", type=Path,
-        default=Path(os.environ["TAPIR_MCP_CHANGE_LOG"]) if os.getenv("TAPIR_MCP_CHANGE_LOG") else default_change_log_dir(),
-        help="Directory for the daily JSONL record of every command that changes the project (default: per-user data directory).",
+        default=(
+            Path(os.environ["TAPIR_MCP_CHANGE_LOG"]) if os.getenv("TAPIR_MCP_CHANGE_LOG") else default_change_log_dir()
+        ),
+        help="Directory for the daily JSONL record of every command that changes the project "
+             "(default: per-user data directory).",
     )
     return parser.parse_args()
 

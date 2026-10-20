@@ -1,6 +1,4 @@
 import re
-import sys
-from pathlib import Path
 
 import pytest
 
@@ -42,7 +40,6 @@ def test_every_registered_command_has_a_valid_kind(fake_archicad):
 
 
 def _load_configs():
-    sys.path.insert(0, str(Path(__file__).parents[2] / "scripts"))
     from generator_config import OFFICIAL_CONFIG, TAPIR_CONFIG
 
     return {"tapir": TAPIR_CONFIG, "official": OFFICIAL_CONFIG}

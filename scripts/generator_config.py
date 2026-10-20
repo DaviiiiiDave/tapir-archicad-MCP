@@ -167,7 +167,7 @@ TAPIR_CONFIG = ApiSourceConfig(
         "HighlightElements",
         "RebuildView",
     },
-    write_commands={  # change project data; most can be undone with Archicad's undo, issue and library commands may not be
+    write_commands={  # change project data; most can be undone, issue and library commands may not be
         "AddCommentToIssue",
         "AddLibraries",
         "ApplyFavoritesToElementDefaults",
@@ -440,7 +440,7 @@ OFFICIAL_CONFIG = ApiSourceConfig(
         "GetWorksheetNavigatorItems",
         "IsAddOnCommandAvailable",
     },
-    write_commands={  # change project data; most can be undone with Archicad's undo, issue and library commands may not be
+    write_commands={  # change project data; most can be undone, issue and library commands may not be
         "CloneProjectMapItemToViewMap",
         "CreateAttributeFolders",
         "CreateLayout",

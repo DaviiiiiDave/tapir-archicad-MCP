@@ -7,7 +7,13 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-from multiconn_archicad import APIResponseError, SoloProjectID, TeamworkCredentials, TeamworkProjectID, UntitledProjectID
+from multiconn_archicad import (
+    APIResponseError,
+    SoloProjectID,
+    TeamworkCredentials,
+    TeamworkProjectID,
+    UntitledProjectID,
+)
 from multiconn_archicad.errors import CommandTimeoutError, StandardAPIError
 
 from tapir_archicad_mcp.change_log import ChangeLog, default_change_log_dir
@@ -27,7 +33,9 @@ def _lines(change_log: ChangeLog) -> list[dict]:
 
 @pytest.mark.asyncio
 async def test_write_command_is_logged(fake_archicad, change_log):
-    register_tool_for_dispatch(Mock(return_value={"ok": True}), name="test_write", title="T", description="D", kind="write")
+    register_tool_for_dispatch(
+        Mock(return_value={"ok": True}), name="test_write", title="T", description="D", kind="write"
+    )
 
     result = await archicad_call_tool("test_write", {"port": 19723})
 
@@ -70,7 +78,9 @@ async def test_unwritable_change_log_does_not_hide_the_result(fake_archicad, tmp
     blocker = tmp_path / "not-a-directory"
     blocker.write_text("x")
     change_log_instance.set(ChangeLog(blocker))
-    register_tool_for_dispatch(Mock(return_value={"ok": True}), name="test_write_2", title="T", description="D", kind="write")
+    register_tool_for_dispatch(
+        Mock(return_value={"ok": True}), name="test_write_2", title="T", description="D", kind="write"
+    )
 
     result = await archicad_call_tool("test_write_2", {"port": 19723})
 
@@ -130,7 +140,9 @@ async def test_transport_failure_is_logged_as_unknown(fake_archicad, change_log)
 @pytest.mark.asyncio
 async def test_project_is_read_fresh_at_log_time(fake_archicad, change_log):
     fake_archicad.get_archicad_id = lambda timeout: SoloProjectID(projectName="Other", projectPath="/p/other.pln")
-    register_tool_for_dispatch(Mock(return_value={"ok": True}), name="test_fresh_project", title="T", description="D", kind="write")
+    register_tool_for_dispatch(
+        Mock(return_value={"ok": True}), name="test_fresh_project", title="T", description="D", kind="write"
+    )
 
     await archicad_call_tool("test_fresh_project", {"port": 19723})
 
@@ -153,9 +165,13 @@ def _raise(error: Exception):
         (_raise(RuntimeError("socket gone")), "socket gone"),
     ],
 )
-async def test_unreadable_project_is_logged_as_unknown_not_untitled(fake_archicad, change_log, identity, expected_error):
+async def test_unreadable_project_is_logged_as_unknown_not_untitled(
+    fake_archicad, change_log, identity, expected_error
+):
     fake_archicad.get_archicad_id = identity
-    register_tool_for_dispatch(Mock(return_value={"ok": True}), name="test_unknown_project", title="T", description="D", kind="write")
+    register_tool_for_dispatch(
+        Mock(return_value={"ok": True}), name="test_unknown_project", title="T", description="D", kind="write"
+    )
 
     result = await archicad_call_tool("test_unknown_project", {"port": 19723})
 
@@ -167,7 +183,9 @@ async def test_unreadable_project_is_logged_as_unknown_not_untitled(fake_archica
 
 @pytest.mark.asyncio
 async def test_write_command_returning_nothing_still_reports_the_change_log(fake_archicad, change_log):
-    register_tool_for_dispatch(Mock(return_value=None), name="test_write_none", title="T", description="D", kind="write")
+    register_tool_for_dispatch(
+        Mock(return_value=None), name="test_write_none", title="T", description="D", kind="write"
+    )
 
     result = await archicad_call_tool("test_write_none", {"port": 19723})
 
@@ -177,7 +195,9 @@ async def test_write_command_returning_nothing_still_reports_the_change_log(fake
 @pytest.mark.asyncio
 async def test_change_log_error_is_never_empty(fake_archicad):
     change_log_instance.set(Mock(record=Mock(side_effect=OSError())))
-    register_tool_for_dispatch(Mock(return_value={"ok": True}), name="test_write_3", title="T", description="D", kind="write")
+    register_tool_for_dispatch(
+        Mock(return_value={"ok": True}), name="test_write_3", title="T", description="D", kind="write"
+    )
 
     result = await archicad_call_tool("test_write_3", {"port": 19723})
 
@@ -254,7 +274,7 @@ def test_fingerprints():
     assert project_fingerprint(UntitledProjectID()) == "untitled"
 
 
-def test_default_directory_is_outside_the_working_tree():
+def test_default_directory_is_an_absolute_per_user_path():
     assert default_change_log_dir().name == "change-log"
     assert default_change_log_dir().is_absolute()
     assert isinstance(default_change_log_dir(), Path)

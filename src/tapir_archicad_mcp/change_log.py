@@ -1,4 +1,4 @@
-"""Append-only JSONL record of every command that changed (or tried to change) the project."""
+"""Append-only JSONL record of every dispatched command that changes the project, including failed ones."""
 
 import json
 import os

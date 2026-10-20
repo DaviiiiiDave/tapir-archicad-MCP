@@ -1,4 +1,4 @@
-"""Compact validation errors that never echo the rejected input."""
+"""Compact validation errors that omit the rejected input values (pydantic `include_input=False`)."""
 
 from pydantic import ValidationError
 

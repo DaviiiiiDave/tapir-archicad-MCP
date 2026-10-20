@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from mcp.server.mcpserver.exceptions import ToolError
-from mcp.types import CallToolResult, TextContent, ToolAnnotations
+from mcp.types import CallToolResult, ToolAnnotations
 from multiconn_archicad import (
     APIResponseError,
     ConnHeader,
@@ -20,13 +20,12 @@ from pydantic import ValidationError
 
 from tapir_archicad_mcp.app import mcp
 from tapir_archicad_mcp.context import change_log_instance, job_store_instance, multi_conn_instance
-from tapir_archicad_mcp.jobs import JobStore, arguments_preview, outcome_may_be_unknown, upstream_error
 from tapir_archicad_mcp.images import build_image_result, extract_images, to_tool_result
+from tapir_archicad_mcp.jobs import JobStore, arguments_preview, outcome_may_be_unknown, upstream_error
 from tapir_archicad_mcp.outcome import DEFAULT_RESULT_FIELDS, RESULT_LIST_FIELDS, summarize_execution_results
 from tapir_archicad_mcp.pagination import PaginationRequest, prepare_result
 from tapir_archicad_mcp.project_identity import project_fingerprint, read_project_fingerprint
 from tapir_archicad_mcp.request_lifecycle import DispatchLifecycle
-from tapir_archicad_mcp.validation_errors import format_validation_error
 from tapir_archicad_mcp.tools.custom.models import (
     CommandOverview,
     CommandSchema,
@@ -41,6 +40,7 @@ from tapir_archicad_mcp.tools.tool_registry import (
     get_tool_entry,
     get_tool_input_schema,
 )
+from tapir_archicad_mcp.validation_errors import format_validation_error
 
 log = logging.getLogger()
 
@@ -260,7 +260,8 @@ async def archicad_call_tool(name: str, arguments: dict) -> Annotated[CallToolRe
     name="archicad_read_tool",
     title="Execute Read-Only Archicad API Command",
     description=(
-        "Executes an Archicad API command that does not change the project (kind='read' in archicad_list_commands). "
+        "Executes an Archicad API command that does not change project data or files "
+        "(kind='read' in archicad_list_commands); it may change the selection or view. "
         "Same workflow and arguments as archicad_call_tool: get the schema with 'archicad_get_command_schema' first, "
         "pass a 'port', and follow 'next_page_token' with 'page_token'. "
         "Commands that change the project are rejected; use archicad_call_tool for those."

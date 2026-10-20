@@ -75,7 +75,10 @@ def _generate_imports_for_group(commands: list[dict], valid_model_names: set[str
 
 
 def classify_command(name_camel: str, config: ApiSourceConfig) -> str:
-    """Return 'read', 'write' or 'irreversible'. Raise ValueError unless the command is listed in exactly one of the three kind sets."""
+    """Return 'read', 'write' or 'irreversible'.
+
+    Raise ValueError unless the command is listed in exactly one of the three kind sets.
+    """
     kinds = [
         kind
         for kind, names in (
@@ -232,7 +235,8 @@ def run_generation_for_source(config: ApiSourceConfig) -> set[str]:
 
     valid_model_names = set(valid_model_names_list)
 
-    # Classify every command of this source before touching its files, so an unclassified command leaves this source's output unchanged.
+    # Classify every command of this source before touching its files,
+    # so an unclassified command leaves this source's output unchanged.
     unclassified = []
     for cmds in grouped_commands.values():
         for cmd in cmds:
