@@ -7,6 +7,7 @@ from bench.runner import (
     UsageLimitReached,
     make_probe,
     plan_matrix,
+    reclassify_tool_errors,
     run_record,
     run_round,
     usage_limit_reached,
@@ -14,6 +15,7 @@ from bench.runner import (
 from bench.tasks import TASKS, Verdict
 from configs import make_config
 from runs import metrics, outcome
+from streams import assistant, lines, result, tool_result, tool_use
 
 
 def test_matrix_interleaves_arms_within_each_cell():
@@ -196,3 +198,25 @@ def test_a_stopped_attempt_is_set_aside_before_the_run_starts(tmp_path):
     kept = [p for p in run_dir.parent.iterdir() if p.name.startswith("T1-A-haiku-1.aborted")]
     assert len(kept) == 1
     assert (kept[0] / "stream.jsonl").read_text(encoding="utf-8") == "half a stream"
+
+
+def test_reclassify_updates_only_the_tool_errors_of_a_round(tmp_path):
+    stream = lines(
+        assistant("msg_1", [tool_use("toolu_1", "mcp__archicad__archicad_call_tool", {"name": "x", "arguments": {}})]),
+        tool_result("toolu_1", "Port 19724 is not an active Archicad connection.", is_error=True),
+        result(),
+    )
+    run = tmp_path / "T1-A-haiku-1"
+    run.mkdir()
+    (run / "stream.jsonl").write_text("\n".join(stream), encoding="utf-8")
+    (run / "verdict.json").write_text(
+        json.dumps({"run_id": "T1-A-haiku-1", "success": False, "tool_errors": {"transport": 1}}), encoding="utf-8"
+    )
+    (tmp_path / "T1-A-haiku-1.aborted-1").mkdir()
+
+    changed = reclassify_tool_errors(tmp_path)
+
+    assert changed == 1
+    record = json.loads((run / "verdict.json").read_text(encoding="utf-8"))
+    assert record == {"run_id": "T1-A-haiku-1", "success": False, "tool_errors": {"not_discovered": 1}}
+    assert reclassify_tool_errors(tmp_path) == 0

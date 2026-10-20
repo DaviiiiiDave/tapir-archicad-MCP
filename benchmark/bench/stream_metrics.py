@@ -13,6 +13,7 @@ _ERROR_CLASSES = (
     ("validation", re.compile(r"invalid arguments|validation error", re.IGNORECASE)),
     ("refused", re.compile(r"read-only|ask the user to confirm", re.IGNORECASE)),
     ("archicad", re.compile(r"error code|APIERR", re.IGNORECASE)),
+    ("not_discovered", re.compile(r"not an active Archicad connection", re.IGNORECASE)),
     ("transport", re.compile(r"connection|timed out|timeout", re.IGNORECASE)),
 )
 

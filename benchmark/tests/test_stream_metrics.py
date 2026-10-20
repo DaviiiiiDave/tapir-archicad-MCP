@@ -170,6 +170,10 @@ def test_missing_result_event_marks_run_incomplete():
         ('This command cannot be undone. Ask the user to confirm, then call again with "confirm": true.', "refused"),
         ("Archicad returned an error. Error code: 7203, Element not supported", "archicad"),
         ("APIERR_BADID", "archicad"),
+        (
+            "Error executing tool archicad_call_tool: Port 19724 is not an active Archicad connection.",
+            "not_discovered",
+        ),
         ("Error: the connection to the server was lost before the response arrived.", "transport"),
         ("Request timed out", "transport"),
         ("[bench-proxy] blocked: port 19723 is not the benchmark instance", "blocked"),

@@ -124,7 +124,7 @@ def run_record(
         "cost_usd": metrics.cost_usd,
         "turns": metrics.turns,
         "calls": len(metrics.tool_calls),
-        "tool_errors": dict(Counter(call.error_class for call in metrics.tool_calls if call.error_class)),
+        "tool_errors": _tool_errors(metrics),
         "tool_result_kb": metrics.tool_result_bytes / 1024,
         "peak_context_tokens": metrics.peak_context_tokens,
         "context_window": metrics.context_window,
@@ -135,6 +135,26 @@ def run_record(
         "wall_net_s": outcome.wall_s - probe_ms / 1000,
         "ledger_calls": len(ledger),
     }
+
+
+def _tool_errors(metrics: RunMetrics) -> dict[str, int]:
+    return dict(Counter(call.error_class for call in metrics.tool_calls if call.error_class))
+
+
+def reclassify_tool_errors(round_dir: Path) -> int:
+    """Re-derive `tool_errors` of every verdict from its stream, after the error classes changed. Nothing else in
+    the verdict is touched. Returns how many verdicts changed."""
+    changed = 0
+    for run_dir in sorted(Path(round_dir).iterdir()):
+        if not run_dir.is_dir() or ".aborted" in run_dir.name or not (run_dir / "verdict.json").exists():
+            continue
+        record = json.loads((run_dir / "verdict.json").read_text(encoding="utf-8"))
+        metrics = parse_stream((run_dir / "stream.jsonl").read_text(encoding="utf-8").splitlines())
+        if record["tool_errors"] != _tool_errors(metrics):
+            record["tool_errors"] = _tool_errors(metrics)
+            _write_json(run_dir / "verdict.json", record)
+            changed += 1
+    return changed
 
 
 def fresh_run_dir(data_dir: Path, spec: RunSpec) -> Path:

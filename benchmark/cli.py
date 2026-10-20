@@ -10,7 +10,7 @@ from bench.arms import dump_kinds, prepare_arm
 from bench.config import load_config
 from bench.preflight import run_preflight
 from bench.report import build_setup, load_round, render_markdown, summarize
-from bench.runner import plan_matrix, run_round
+from bench.runner import plan_matrix, reclassify_tool_errors, run_round
 from bench.seed import seed_german, seed_international, seed_scale, verify
 from bench.tasks import TASKS
 
@@ -33,6 +33,8 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--models", help="comma separated, default: every model")
     run.add_argument("--tasks", help="comma separated, default: T1..T5")
     run.add_argument("--runs", type=int, help="runs per cell, default: runs_per_cell of bench.toml")
+    reclassify = commands.add_parser("reclassify", help="re-derive the tool error classes of a round from its streams")
+    reclassify.add_argument("--round", required=True, dest="round_id")
     report = commands.add_parser("report", help="write benchmark/results/<round>.md and .json from the verdicts")
     report.add_argument("--round", required=True, dest="round_id")
     args = parser.parse_args(argv)
@@ -71,6 +73,10 @@ def main(argv: list[str] | None = None) -> int:
         result = run_round(cfg, args.round_id, specs)
         print(f"done {len(result.done)}, skipped {len(result.skipped)}, stopped: {result.stopped}")
         return 1 if result.stopped else 0
+
+    if args.command == "reclassify":
+        print(f"{reclassify_tool_errors(cfg.data_dir / 'runs' / args.round_id)} verdicts changed")
+        return 0
 
     if args.command == "report":
         records = load_round(cfg.data_dir / "runs" / args.round_id)
