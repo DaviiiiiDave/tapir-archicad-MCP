@@ -8,8 +8,11 @@ claude_exe = "%LOCALAPPDATA%/Microsoft/WinGet/Links/claude.exe"
 # The German base project. The harness only ever copies it, it never opens this file.
 base_project = "%USERPROFILE%/Desktop/Benchmark.pln"
 
-# archicad-addon/Test/TestProject.pla from ENZYME-APD/tapir-archicad-automation at commit ce1623e.
-international_source = "%LOCALAPPDATA%/tapir-mcp-bench/sources/TestProject.pla"
+# archicad-addon/Test/TestProject.pla from ENZYME-APD/tapir-archicad-automation at commit ce1623e, opened once in
+# Archicad and saved as .pln. A .pla brings only the library parts placed in it, so TestProject has no door and
+# no door marker and CreateDoors fails: add the Archicad 29 library packs (Archicad Bibliothekspakete/*.libpack,
+# the packs the German template loads) to it once and save again.
+international_source = "%LOCALAPPDATA%/tapir-mcp-bench/sources/international-base.pln"
 
 # A checkout of this repository; the arms are exported from its git refs.
 repo_root = "%USERPROFILE%/src/tapir-archicad-MCP"
