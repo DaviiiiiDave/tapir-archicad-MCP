@@ -14,6 +14,7 @@ SMALL_TASKS = ("T3", "T4", "T5")
 SMALL_TASK_LIMIT = 1.10
 _MEDIAN_KEYS = ("total", "input", "cache_read", "cache_creation", "output")
 _TASK_ORDER = ("T1", "T2", "T3", "T4", "T5")
+_NEEDS_BOTH_ARMS = "No cell has both arms yet."
 
 
 def load_round(round_dir: Path) -> list[dict]:
@@ -88,6 +89,9 @@ def _setup_section(setup: dict) -> list[str]:
         + ", ".join(f"{alias} {tokens} tokens" for alias, tokens in setup["baseline_tokens"].items())
     )
     lines.append(
+        "- Cost: the CLI's API-equivalent estimate. The runs use a Claude Code subscription, so it is not a bill."
+    )
+    lines.append(
         "- Limit: Archicad runs in German here, so built-in property display names are only ever seen in German."
     )
     return lines
@@ -135,9 +139,8 @@ def _ratio_section(rows: list[dict]) -> list[str]:
             "difference B - A over the runs with the same index."
         ),
         "",
-        "| task | model | tokens B/A | cost B/A | mean diff B - A (95% CI) | pairs |",
-        "|---|---|---|---|---|---|",
     ]
+    table = []
     for task in _TASK_ORDER:
         for model in sorted({r["model"] for r in rows}):
             a, b = _cell(rows, task, "A", model), _cell(rows, task, "B", model)
@@ -152,11 +155,17 @@ def _ratio_section(rows: list[dict]) -> list[str]:
                 low, high = paired_bootstrap_ci(pairs)
                 mean = statistics.fmean(second - first for first, second in pairs)
                 interval = f"{mean:+,.0f} [{low:+,.0f}, {high:+,.0f}]"
-            lines.append(
+            table.append(
                 f"| {task} | {model} | {b['median']['total'] / a['median']['total']:.2f} "
                 f"| {b['median']['cost_usd'] / a['median']['cost_usd']:.2f} | {interval} | {len(pairs)} |"
             )
-    return [*lines, ""]
+    if not table:
+        return [*lines, _NEEDS_BOTH_ARMS, ""]
+    header = [
+        "| task | model | tokens B/A | cost B/A | mean diff B - A (95% CI) | pairs |",
+        "|---|---|---|---|---|---|",
+    ]
+    return [*lines, *header, *table, ""]
 
 
 def _small_task_section(rows: list[dict]) -> list[str]:
@@ -169,7 +178,7 @@ def _small_task_section(rows: list[dict]) -> list[str]:
             ratio = b["median"]["total"] / a["median"]["total"]
             verdict = "REGRESSION" if ratio > SMALL_TASK_LIMIT else "ok"
             lines.append(f"- {task} / {model}: B/A {ratio:.2f} - {verdict}")
-    return [*lines, ""]
+    return [*lines, *([] if len(lines) > 2 else [_NEEDS_BOTH_ARMS]), ""]
 
 
 def render_markdown(summary: list[dict], setup: dict) -> str:

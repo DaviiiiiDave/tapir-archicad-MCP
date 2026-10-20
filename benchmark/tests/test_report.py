@@ -141,3 +141,16 @@ def test_report_shows_the_success_rate_and_the_t4_cause_split():
 
     assert "2/2" in markdown
     assert "causes separated 1/2" in markdown
+
+
+def test_report_with_one_arm_says_the_comparison_needs_both():
+    markdown = render_markdown(summarize([record("T4", "B", 1, 1000)]), SETUP)
+
+    assert markdown.count("No cell has both arms yet.") == 2
+    assert "| task | model | tokens B/A" not in markdown
+
+
+def test_report_states_that_cost_is_the_cli_estimate_for_subscription_runs():
+    markdown = render_markdown(summarize([record("T4", "B", 1, 1000)]), SETUP)
+
+    assert "subscription" in markdown
