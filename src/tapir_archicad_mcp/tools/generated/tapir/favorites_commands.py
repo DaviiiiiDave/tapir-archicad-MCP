@@ -114,7 +114,7 @@ register_tool_for_dispatch(
     title="ExportFavorites",
     description="Export the project's Favorites to a .prefs file or folder.",
     params_model=ExportFavoritesParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 

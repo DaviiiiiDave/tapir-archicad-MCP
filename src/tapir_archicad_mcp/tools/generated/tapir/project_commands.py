@@ -320,7 +320,7 @@ register_tool_for_dispatch(
     title="PrintView",
     description="Prints from the current view.",
     params_model=PrintViewParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 

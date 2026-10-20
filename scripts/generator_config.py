@@ -20,7 +20,7 @@ class ApiSourceConfig:
     commands_to_exclude: set[str] = field(default_factory=set)
     # Every command is in exactly one of the three sets (checked by classify_command):
     #   read: does not change project data or files.
-    #   write: changes the project, and Archicad's undo can take it back; may export new files.
+    #   write: changes project data; most can be undone with Archicad's undo, issue and library commands may not be.
     #   irreversible: open/close/save, delete, Teamwork send/receive/reserve/release, publish, IFC file operations,
     #     anything that replaces or overwrites user files or affects other users.
     read_commands: set[str] = field(default_factory=set)
@@ -167,9 +167,8 @@ TAPIR_CONFIG = ApiSourceConfig(
         "HighlightElements",
         "RebuildView",
     },
-    write_commands={  # change the project but can be undone in Archicad
+    write_commands={  # change project data; most can be undone with Archicad's undo, issue and library commands may not be
         "AddCommentToIssue",
-        "AddFilesToEmbeddedLibrary",
         "AddLibraries",
         "ApplyFavoritesToElementDefaults",
         "ApplyFavoritesToElements",
@@ -246,8 +245,6 @@ TAPIR_CONFIG = ApiSourceConfig(
         "CreateZoneCategories",
         "CreateZones",
         "DetachElementsFromIssue",
-        "ExportFavorites",
-        "ExportIssuesToBCF",
         "ImportClassificationsXml",
         "ImportFavorites",
         "ImportIssuesFromBCF",
@@ -272,7 +269,6 @@ TAPIR_CONFIG = ApiSourceConfig(
         "MoveDesignOptionsToAnotherSet",
         "MoveElements",
         "MoveElementsToDesignOptions",
-        "PrintView",
         "ReloadLibraries",
         "RemoveElementNotificationClient",
         "RemoveElementTrims",
@@ -311,6 +307,7 @@ TAPIR_CONFIG = ApiSourceConfig(
         "UpdateZones",
     },
     irreversible_commands={  # cannot be undone in Archicad or affect other users
+        "AddFilesToEmbeddedLibrary",
         "CloseProject",
         "DeleteClassificationItems",
         "DeleteClassificationSystems",
@@ -323,8 +320,11 @@ TAPIR_CONFIG = ApiSourceConfig(
         "DeleteProjectInfoFields",
         "DeletePropertyDefinitions",
         "DeletePropertyGroups",
+        "ExportFavorites",
+        "ExportIssuesToBCF",
         "IFCFileOperation",
         "OpenProject",
+        "PrintView",
         "PublishPublisherSet",
         "ReleaseElements",
         "ReleaseHotlinkCacheManagement",
@@ -440,7 +440,7 @@ OFFICIAL_CONFIG = ApiSourceConfig(
         "GetWorksheetNavigatorItems",
         "IsAddOnCommandAvailable",
     },
-    write_commands={  # change the project but can be undone in Archicad
+    write_commands={  # change project data; most can be undone with Archicad's undo, issue and library commands may not be
         "CloneProjectMapItemToViewMap",
         "CreateAttributeFolders",
         "CreateLayout",

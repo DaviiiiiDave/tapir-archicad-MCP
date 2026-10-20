@@ -113,7 +113,7 @@ register_tool_for_dispatch(
     title="ExportIssuesToBCF",
     description="Exports specified issues to a BCF file.",
     params_model=ExportIssuesToBCFParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 

@@ -30,7 +30,7 @@ register_tool_for_dispatch(
         "already existing on an outputPath is replaced (Archicad 27 or newer)."
     ),
     params_model=AddFilesToEmbeddedLibraryParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 
