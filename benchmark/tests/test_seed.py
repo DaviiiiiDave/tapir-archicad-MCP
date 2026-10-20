@@ -2,7 +2,15 @@ from collections import Counter
 from itertools import pairwise
 
 import pytest
-from bench.seed import assign_states, compare_states, read_manifest, set_states, wall_grid, write_manifest
+from bench.seed import (
+    assign_states,
+    compare_states,
+    layer_indices,
+    read_manifest,
+    set_states,
+    wall_grid,
+    write_manifest,
+)
 
 PROP = "DCD338EC-BF33-DA43-9196-B71B64C746D2"
 SYSTEM = {"guid": "B6636241-937D-234D-902F-2D30E4BD0FB8"}
@@ -125,6 +133,39 @@ def test_set_states_fails_loudly_when_archicad_refuses():
 
     with pytest.raises(RuntimeError, match="6001"):
         set_states(ac, {"w1": "value"}, PROP, value="REI 30", classification_system=SYSTEM, via="official")
+
+
+class LayerAC:
+    def __init__(self, layers):
+        self.layers = layers
+        self.calls = []
+
+    def official(self, command, params=None):
+        self.calls.append(command)
+        return {"attributeIds": [{"attributeId": layer["attributeId"]} for layer in self.layers]}
+
+    def tapir(self, command, params=None):
+        self.calls.append(command)
+        return {"layers": self.layers}
+
+
+def layer(name, index):
+    return {"attributeId": {"guid": f"0000000{index}-0000-0000-0000-000000000000"}, "index": index, "name": name}
+
+
+def test_layer_indices_finds_layers_by_name():
+    ac = LayerAC([layer("BENCH T4 open", 8), layer("BENCH T5", 12)])
+
+    assert layer_indices(ac, ["BENCH T5", "BENCH T4 open"]) == {"BENCH T5": 12, "BENCH T4 open": 8}
+    assert "CreateLayers" not in ac.calls
+
+
+def test_layer_indices_names_missing_layers_and_never_creates_them():
+    ac = LayerAC([layer("BENCH T4 open", 8)])
+
+    with pytest.raises(RuntimeError, match="BENCH T5"):
+        layer_indices(ac, ["BENCH T4 open", "BENCH T5"])
+    assert "CreateLayers" not in ac.calls
 
 
 def test_compare_states_reports_each_mismatch():

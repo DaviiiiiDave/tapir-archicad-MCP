@@ -6,7 +6,6 @@ removing the classification makes the property notAvailable; curtain-wall panels
 writes to locked-layer and hotlinked walls fail with the same error in both APIs.
 """
 
-import collections
 import hashlib
 import json
 import shutil
@@ -21,7 +20,7 @@ LAYER_T4_OPEN = "BENCH T4 open"
 LAYER_T4_LOCKED = "BENCH T4 locked"
 LAYER_T5 = "BENCH T5"
 LAYER_MODULE = "BENCH Module"
-LAYER_SCALE = "BENCH Scale"
+BENCH_LAYERS = (LAYER_T4_OPEN, LAYER_T4_LOCKED, LAYER_T5, LAYER_MODULE)  # live in the base project
 SMALL_WALL_THICKNESS = 0.20  # below T2's 0.24 m rule, so T4/T5 walls never fall into T2's rule set
 T2_MIN_THICKNESS = 0.24
 
@@ -164,16 +163,14 @@ def _layers(ac) -> list[dict]:
     return [layer for layer in ac.tapir("GetLayers", {"attributeIds": attribute_ids})["layers"] if "name" in layer]
 
 
-def create_layers(ac, names: list[str]) -> dict[str, int]:
-    """Create the missing layers in one call (Archicad may show one 'created attributes' dialog per call) with the
-    intersection group the template's layers use, and return every name's index."""
-    existing = _layers(ac)
-    group = collections.Counter(layer.get("intersectionGroupNr") for layer in existing).most_common(1)[0][0]
-    missing = [name for name in names if name not in {layer["name"] for layer in existing}]
+def layer_indices(ac, names: list[str]) -> dict[str, int]:
+    """Indices of layers that must already exist in the base project. Seeding never creates layers: Tapir
+    CreateLayers opens Archicad's modal 'created attributes' dialog, which blocks every later command."""
+    by_name = {layer["name"]: layer["index"] for layer in _layers(ac)}
+    missing = [name for name in names if name not in by_name]
     if missing:
-        ac.tapir("CreateLayers", {"layerDataArray": [{"name": name, "intersectionGroupNr": group} for name in missing]})
-    by_name = {layer["name"]: layer for layer in _layers(ac)}
-    return {name: by_name[name]["index"] for name in names}
+        raise RuntimeError(f"layers missing in the base project: {', '.join(missing)}; create them there once")
+    return {name: by_name[name] for name in names}
 
 
 def lock_layer(ac, name: str) -> None:
@@ -254,7 +251,7 @@ def seed_german(ac: BenchArchicad, cfg: BenchConfig) -> Path:
     _open_fresh(ac, cfg.base_project, fixture)
     fire = property_id(ac, rule["fire_property_group"], rule["fire_property_name"])
     system = {"guid": rule["classification_system"]}
-    layers = create_layers(ac, [LAYER_T4_OPEN, LAYER_T4_LOCKED, LAYER_T5, LAYER_MODULE])
+    layers = layer_indices(ac, list(BENCH_LAYERS))
 
     def small_walls(count, story, origin):
         return create_walls(
@@ -329,7 +326,6 @@ def seed_scale(ac: BenchArchicad, cfg: BenchConfig) -> Path:
     _open_fresh(ac, Path(german["fixture"]), fixture)
     fire = property_id(ac, rule["fire_property_group"], rule["fire_property_name"])
     system = {"guid": rule["classification_system"]}
-    layers = create_layers(ac, [LAYER_SCALE])
 
     grid = wall_grid(
         spec["walls_thick"] + spec["walls_thin"],
@@ -340,7 +336,6 @@ def seed_scale(ac: BenchArchicad, cfg: BenchConfig) -> Path:
         origin=(2000.0, 0.0),
     )
     walls = create_walls(ac, grid, batch=spec["batch"])
-    move_to_layer(ac, walls, layers[LAYER_SCALE], batch=spec["batch"])
     thickness = dict(zip(walls, (w["thickness"] for w in grid), strict=True))
     wall_states = assign_states(walls, spec["wall_states"])
     set_states(ac, wall_states, fire, spec["wall_value"], system, "official")
