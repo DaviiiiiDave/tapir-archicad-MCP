@@ -51,10 +51,20 @@ def arguments_preview(arguments: dict) -> str:
     return preview if len(preview) <= PREVIEW_MAX_CHARS else preview[: PREVIEW_MAX_CHARS - 1] + "…"
 
 
+def upstream_error(exc: BaseException) -> BaseException | None:
+    """The error Archicad (or the transport) raised: the exception itself, or what it was raised from."""
+    return exc if isinstance(exc, APIErrorBase) else exc.__cause__
+
+
+def outcome_may_be_unknown(exc: BaseException) -> bool:
+    """True for transport/timeout failures: Archicad may have applied the change anyway."""
+    return isinstance(upstream_error(exc), RequestError)
+
+
 def _failure_details(exc: BaseException) -> dict:
-    upstream = exc if isinstance(exc, APIErrorBase) else exc.__cause__
+    upstream = upstream_error(exc)
     message = str(exc) if isinstance(exc, (APIErrorBase, ToolError)) else "Unexpected execution error."
-    if isinstance(upstream, RequestError):
+    if outcome_may_be_unknown(exc):
         message += " Archicad's actual outcome may be unknown; do not automatically retry this command."
     elif not isinstance(exc, (APIErrorBase, ToolError)):
         message += " Archicad's actual outcome may be unknown; inspect the server logs."

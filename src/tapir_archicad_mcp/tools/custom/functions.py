@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from pathlib import Path
 from typing import Annotated, Any
 
 from mcp.server.mcpserver.exceptions import ToolError
@@ -19,11 +20,11 @@ from pydantic import ValidationError
 
 from tapir_archicad_mcp.app import mcp
 from tapir_archicad_mcp.context import change_log_instance, job_store_instance, multi_conn_instance
-from tapir_archicad_mcp.jobs import JobStore, arguments_preview
+from tapir_archicad_mcp.jobs import JobStore, arguments_preview, outcome_may_be_unknown, upstream_error
 from tapir_archicad_mcp.images import build_image_result, extract_images, to_tool_result
 from tapir_archicad_mcp.outcome import DEFAULT_RESULT_FIELDS, RESULT_LIST_FIELDS, summarize_execution_results
 from tapir_archicad_mcp.pagination import PaginationRequest, prepare_result
-from tapir_archicad_mcp.project_identity import project_fingerprint
+from tapir_archicad_mcp.project_identity import project_fingerprint, read_project_fingerprint
 from tapir_archicad_mcp.request_lifecycle import DispatchLifecycle
 from tapir_archicad_mcp.validation_errors import format_validation_error
 from tapir_archicad_mcp.tools.custom.models import (
@@ -211,7 +212,7 @@ def _matches_all_tokens(tool: dict, tokens: list[str]) -> bool:
     ),
 )
 def archicad_get_command_schema(command_name: str) -> CommandSchema:
-    log.info(f"Executing archicad_get_command_schema for: {command_name}")
+    log.info(f"Executing archicad_get_command_schema for: {command_name!r}")
     try:
         tool = TOOL_DISCOVERY_CATALOG[command_name]
     except KeyError:
@@ -251,7 +252,7 @@ def archicad_get_command_schema(command_name: str) -> CommandSchema:
     ),
 )
 async def archicad_call_tool(name: str, arguments: dict) -> Annotated[CallToolResult, dict]:
-    log.info(f"Executing archicad_call_tool for tool: {name}")
+    log.info(f"Executing archicad_call_tool for tool: {name!r}")
     return to_tool_result(name, await _run_command(name, arguments, read_only=False))
 
 
@@ -272,7 +273,7 @@ async def archicad_call_tool(name: str, arguments: dict) -> Annotated[CallToolRe
     ),
 )
 async def archicad_read_tool(name: str, arguments: dict) -> Annotated[CallToolResult, dict]:
-    log.info(f"Executing archicad_read_tool for tool: {name}")
+    log.info(f"Executing archicad_read_tool for tool: {name!r}")
     return to_tool_result(name, await _run_command(name, arguments, read_only=True))
 
 
@@ -283,8 +284,9 @@ async def _run_command(name: str, arguments: dict, *, read_only: bool) -> dict:
     try:
         validated_arguments = tool_entry.arguments_model.model_validate(arguments)
     except ValidationError as e:
-        log.error(f"Validation error for arguments of {name}: {e}")
-        raise ToolError(format_validation_error(name, e)) from e
+        message = format_validation_error(name, e)
+        log.error(f"Validation error for arguments of {name!r}: {message}")
+        raise ToolError(message) from e
     if tool_entry.kind == "irreversible" and not validated_arguments.confirm:
         raise ToolError(
             f"'{name}' is irreversible: it cannot be undone in Archicad or it affects other users. "
@@ -327,10 +329,10 @@ def _execute_tool(name: str, tool_entry: ToolRegistryEntry, validated_arguments:
             result = _dispatch_command(name, tool_entry, call_args, port)
     except Exception as e:
         if changes_project:
-            _record_change(name, tool_entry, validated_arguments, conn_header, job_handle, None, error=str(e))
+            _record_failed_change(name, tool_entry, validated_arguments, conn_header, job_handle, e)
         raise
     if changes_project:
-        result = _with_outcome(name, result)
+        result = _with_outcome(name, {} if result is None else result)
         result = _record_change(name, tool_entry, validated_arguments, conn_header, job_handle, result)
     if tool_entry.pagination_field is None:
         return result
@@ -349,36 +351,80 @@ def _with_outcome(name: str, result: Any) -> Any:
     return {**result, "outcome": summary}
 
 
+def _write_change_log(
+    name: str,
+    tool_entry: ToolRegistryEntry,
+    validated_arguments: Any,
+    conn_header: ConnHeader,
+    job_handle: str,
+    result: dict | None,
+    failure: Exception | None,
+) -> Path:
+    project, project_error = read_project_fingerprint(conn_header)
+    entry = {
+        "port": validated_arguments.port,
+        "project": project,
+        "command": name,
+        "kind": tool_entry.kind,
+        "argumentsPreview": arguments_preview(
+            validated_arguments.model_dump(mode="json", by_alias=True, exclude_none=True)
+        ),
+        "status": _change_status(failure),
+        "outcome": result.get("outcome") if result is not None else None,
+        "error": str(failure) if failure is not None else None,
+        "jobHandle": job_handle,
+    }
+    if project_error is not None:
+        entry["projectError"] = project_error
+    return change_log_instance.get().record(entry)
+
+
+def _change_status(failure: Exception | None) -> str:
+    if failure is None:
+        return "completed"
+    return "unknown" if outcome_may_be_unknown(failure) else "failed"
+
+
 def _record_change(
     name: str,
     tool_entry: ToolRegistryEntry,
     validated_arguments: Any,
     conn_header: ConnHeader,
     job_handle: str,
-    result: Any,
-    error: str | None = None,
-) -> Any:
+    result: dict,
+) -> dict:
     """Write the change-log line. Returns the result, with the log path (or the reason it failed) added."""
     try:
-        entry = {
-            "port": validated_arguments.port,
-            "project": project_fingerprint(getattr(conn_header, "archicad_id", None)),
-            "command": name,
-            "kind": tool_entry.kind,
-            "argumentsPreview": arguments_preview(
-                validated_arguments.model_dump(mode="json", by_alias=True, exclude_none=True)
-            ),
-            "status": "failed" if error is not None else "completed",
-            "outcome": result.get("outcome") if isinstance(result, dict) else None,
-            "error": error,
-            "jobHandle": job_handle,
-        }
-        path = change_log_instance.get().record(entry)
+        path = _write_change_log(name, tool_entry, validated_arguments, conn_header, job_handle, result, None)
     except Exception as e:
         # The command has already run in Archicad: a logging problem must not hide its result.
         log.error(f"Could not write the change log for {name}: {e}")
-        return {**result, "changeLogError": str(e)} if isinstance(result, dict) else result
-    return {**result, "changeLog": str(path)} if isinstance(result, dict) else result
+        return {**result, "changeLogError": f"{type(e).__name__}: {e}"}
+    return {**result, "changeLog": str(path)}
+
+
+def _record_failed_change(
+    name: str,
+    tool_entry: ToolRegistryEntry,
+    validated_arguments: Any,
+    conn_header: ConnHeader,
+    job_handle: str,
+    failure: Exception,
+) -> None:
+    """Write the change-log line for a failed command; if that fails too, say so in the error that is raised."""
+    try:
+        _write_change_log(name, tool_entry, validated_arguments, conn_header, job_handle, None, failure)
+    except Exception as e:
+        log.error(f"Could not write the change log for {name}: {e}")
+        original = (
+            str(failure)
+            if isinstance(failure, (APIErrorBase, ToolError))
+            else "Unexpected execution error. Archicad's actual outcome may be unknown; inspect the server logs."
+        )
+        # Chain from the upstream error so jobs._failure_details still sees a transport failure.
+        raise ToolError(
+            f"{original} Change log could not be written: {type(e).__name__}: {e}"
+        ) from (upstream_error(failure) or failure)
 
 
 def _dispatch_command(name: str, tool_entry: ToolRegistryEntry, call_args: dict, port: int) -> Any:

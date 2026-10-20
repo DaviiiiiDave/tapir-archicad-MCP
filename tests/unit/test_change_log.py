@@ -7,7 +7,8 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-from multiconn_archicad import SoloProjectID, TeamworkCredentials, TeamworkProjectID, UntitledProjectID
+from multiconn_archicad import APIResponseError, SoloProjectID, TeamworkCredentials, TeamworkProjectID, UntitledProjectID
+from multiconn_archicad.errors import CommandTimeoutError, StandardAPIError
 
 from tapir_archicad_mcp.change_log import ChangeLog, default_change_log_dir
 from tapir_archicad_mcp.context import change_log_instance
@@ -75,6 +76,120 @@ async def test_unwritable_change_log_does_not_hide_the_result(fake_archicad, tmp
 
     assert result["ok"] is True
     assert "changeLogError" in result
+
+
+@pytest.mark.asyncio
+async def test_failed_command_with_unwritable_log_reports_both(fake_archicad, tmp_path):
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("x")
+    change_log_instance.set(ChangeLog(blocker))
+    register_tool_for_dispatch(
+        Mock(side_effect=StandardAPIError(code=7, message="bad input")),
+        name="test_failing_unlogged", title="T", description="D", kind="write",
+    )
+
+    with pytest.raises(Exception) as raised:
+        await archicad_call_tool("test_failing_unlogged", {"port": 19723})
+
+    assert "bad input" in str(raised.value)
+    assert "Change log could not be written" in str(raised.value)
+
+
+@pytest.mark.asyncio
+async def test_timed_out_command_with_unwritable_log_keeps_the_transport_cause(fake_archicad, tmp_path):
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("x")
+    change_log_instance.set(ChangeLog(blocker))
+    register_tool_for_dispatch(
+        Mock(side_effect=CommandTimeoutError("timed out")),
+        name="test_timeout_unlogged", title="T", description="D", kind="write",
+    )
+
+    with pytest.raises(Exception) as raised:
+        await archicad_call_tool("test_timeout_unlogged", {"port": 19723})
+
+    assert "Change log could not be written" in str(raised.value)
+    # jobs._failure_details reads the cause to add "outcome may be unknown".
+    assert isinstance(raised.value.__cause__, CommandTimeoutError)
+
+
+@pytest.mark.asyncio
+async def test_transport_failure_is_logged_as_unknown(fake_archicad, change_log):
+    register_tool_for_dispatch(
+        Mock(side_effect=CommandTimeoutError("timed out")),
+        name="test_timeout_write", title="T", description="D", kind="write",
+    )
+
+    with pytest.raises(Exception):
+        await archicad_call_tool("test_timeout_write", {"port": 19723})
+
+    (entry,) = _lines(change_log)
+    assert entry["status"] == "unknown"
+
+
+@pytest.mark.asyncio
+async def test_project_is_read_fresh_at_log_time(fake_archicad, change_log):
+    fake_archicad.get_archicad_id = lambda timeout: SoloProjectID(projectName="Other", projectPath="/p/other.pln")
+    register_tool_for_dispatch(Mock(return_value={"ok": True}), name="test_fresh_project", title="T", description="D", kind="write")
+
+    await archicad_call_tool("test_fresh_project", {"port": 19723})
+
+    (entry,) = _lines(change_log)
+    assert entry["project"] == "/p/other.pln"
+
+
+def _raise(error: Exception):
+    def get_archicad_id(timeout):
+        raise error
+
+    return get_archicad_id
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "identity, expected_error",
+    [
+        (lambda timeout: APIResponseError(code=None, message="no answer"), "no answer"),
+        (_raise(RuntimeError("socket gone")), "socket gone"),
+    ],
+)
+async def test_unreadable_project_is_logged_as_unknown_not_untitled(fake_archicad, change_log, identity, expected_error):
+    fake_archicad.get_archicad_id = identity
+    register_tool_for_dispatch(Mock(return_value={"ok": True}), name="test_unknown_project", title="T", description="D", kind="write")
+
+    result = await archicad_call_tool("test_unknown_project", {"port": 19723})
+
+    (entry,) = _lines(change_log)
+    assert entry["project"] == "unknown"
+    assert expected_error in entry["projectError"]
+    assert result["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_write_command_returning_nothing_still_reports_the_change_log(fake_archicad, change_log):
+    register_tool_for_dispatch(Mock(return_value=None), name="test_write_none", title="T", description="D", kind="write")
+
+    result = await archicad_call_tool("test_write_none", {"port": 19723})
+
+    assert result["changeLog"] == str(next(change_log.directory.glob("changes-*.jsonl")))
+
+
+@pytest.mark.asyncio
+async def test_change_log_error_is_never_empty(fake_archicad):
+    change_log_instance.set(Mock(record=Mock(side_effect=OSError())))
+    register_tool_for_dispatch(Mock(return_value={"ok": True}), name="test_write_3", title="T", description="D", kind="write")
+
+    result = await archicad_call_tool("test_write_3", {"port": 19723})
+
+    assert result["changeLogError"].startswith("OSError")
+
+
+def test_line_separators_in_values_cannot_split_an_entry(tmp_path):
+    path = ChangeLog(tmp_path).record({"command": "a b cd"})
+
+    text = path.read_text(encoding="utf-8")
+    assert len(text.splitlines()) == 1
+    assert json.loads(text)["command"] == "a b cd"
 
 
 def test_entries_go_to_a_file_per_utc_day(tmp_path):

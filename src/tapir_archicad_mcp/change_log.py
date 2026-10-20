@@ -63,7 +63,7 @@ class ChangeLog:
         now = self._clock()
         self.directory.mkdir(parents=True, exist_ok=True)
         path = self.directory / f"changes-{now.date().isoformat()}.jsonl"
-        line = json.dumps({"time": now.isoformat(), **entry}, ensure_ascii=False, separators=(",", ":"))
+        line = json.dumps({"time": now.isoformat(), **entry}, ensure_ascii=True, separators=(",", ":"))
         with self._lock, _exclusive_file_lock(self.directory / ".lock"):
             with path.open("a", encoding="utf-8") as file:
                 file.write(line + "\n")

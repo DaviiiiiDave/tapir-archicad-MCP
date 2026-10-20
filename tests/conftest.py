@@ -55,6 +55,10 @@ class FakeArchicad:
         self.archicad_location = ArchicadLocation(archicadLocation="/Applications/GRAPHISOFT/Archicad 28/ARCHICAD")
         self.archicad_id = SoloProjectID(projectName="FakeProject", projectPath="/path/to/fake_project.pln")
 
+    def get_archicad_id(self, timeout: float):
+        """Fresh read of the project identity, as ConnHeader.get_archicad_id does."""
+        return self.archicad_id
+
     def on_tapir_command(self, command: str, response: dict) -> None:
         """Registers the canned response returned for a Tapir command."""
         self._canned_responses[command] = response

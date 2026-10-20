@@ -225,7 +225,7 @@ async def test_union_parameter_models_validate_and_dispatch(fake_archicad):
     result = await archicad_call_tool(name, {"port": 19723, "params": {"second": "value"}})
     schema = archicad_get_command_schema(name).input_schema
 
-    assert result == {}
+    assert set(result) == {"changeLog"}
     assert isinstance(received[0], SecondParams)
     assert schema == get_tool_entry(name).arguments_model.model_json_schema()
     assert len(schema["properties"]["params"]["anyOf"]) == 2
