@@ -23,6 +23,12 @@ def job_store(monkeypatch, job_clock):
 
 
 @pytest.fixture(autouse=True)
+def element_sets_off(monkeypatch):
+    """Tests of raw element lists and pagination run without auto-sets; test_auto_sets.py turns them on."""
+    monkeypatch.setattr("tapir_archicad_mcp.app.element_sets_enabled", False)
+
+
+@pytest.fixture(autouse=True)
 def change_log(tmp_path):
     log = ChangeLog(tmp_path / "change-log")
     change_log_instance.set(log)

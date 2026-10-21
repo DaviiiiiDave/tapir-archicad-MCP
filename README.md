@@ -84,6 +84,7 @@ You can customize the server via CLI flags or environment variables:
 | `--job-ttl-seconds` | `TAPIR_MCP_JOB_TTL_SECONDS` | `86400` | Seconds to keep finished jobs; `0` disables time-based expiry |
 | `--max-completed-jobs` | `TAPIR_MCP_MAX_COMPLETED_JOBS` | `128` | Maximum number of finished jobs to keep |
 | `--change-log` | `TAPIR_MCP_CHANGE_LOG` | per-user data directory (Windows `%APPDATA%\tapir-archicad-mcp\change-log`) | Directory for the daily JSONL record of every dispatched command that changes the project, including failed ones |
+| `--element-sets` | `TAPIR_MCP_ELEMENT_SETS` | `on` | `on` stores the element lists returned by read commands as sets and replaces lists of more than 20 elements by a summary; `off` returns the raw lists, paginated |
 
 CLI flags override environment variables.
 

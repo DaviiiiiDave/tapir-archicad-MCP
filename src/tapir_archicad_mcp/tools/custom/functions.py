@@ -18,7 +18,9 @@ from multiconn_archicad import (
 from multiconn_archicad.errors import AddOnCommandUnavailable, APIErrorBase
 from pydantic import ValidationError
 
+import tapir_archicad_mcp.app as app_settings
 from tapir_archicad_mcp.app import mcp
+from tapir_archicad_mcp.auto_sets import AUTO_SET_FIELDS, apply_auto_set
 from tapir_archicad_mcp.context import change_log_instance, job_store_instance, multi_conn_instance
 from tapir_archicad_mcp.images import build_image_result, extract_images, to_tool_result
 from tapir_archicad_mcp.jobs import JobStore, arguments_preview, outcome_may_be_unknown, upstream_error
@@ -363,8 +365,12 @@ def _execute_tool(
     if changes_project:
         result = _with_outcome(name, {} if result is None else result)
         result = _record_change(name, tool_entry, validated_arguments, conn_header, job_handle, sets, result)
+    elif app_settings.element_sets_enabled and name in AUTO_SET_FIELDS:
+        parameters = _serialized_parameters(validated_arguments.params if tool_entry.params_model else None)
+        result = apply_auto_set(name, result, conn_header, port, parameters)
     if tool_entry.pagination_field is None:
         return result
+    # A list that became a set summary is no longer in the result, so prepare_result leaves it unpaginated.
     request = _pagination_request(name, tool_entry, validated_arguments, conn_header)
     return prepare_result(result, request, job_handle.removeprefix("job:"))
 

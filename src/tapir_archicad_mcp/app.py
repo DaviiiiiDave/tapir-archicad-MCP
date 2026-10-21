@@ -22,6 +22,7 @@ from tapir_archicad_mcp.jobs import JobSettings, JobStore
 log = logging.getLogger(__name__)
 job_settings = JobSettings()
 change_log_directory: Path | None = None
+element_sets_enabled: bool = True
 
 
 class ArchicadMCPServer(MCPServer):

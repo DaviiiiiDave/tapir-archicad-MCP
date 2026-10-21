@@ -29,6 +29,7 @@ def _clear_http_env(monkeypatch):
         "TAPIR_MCP_JOB_TTL_SECONDS",
         "TAPIR_MCP_MAX_COMPLETED_JOBS",
         "TAPIR_MCP_CHANGE_LOG",
+        "TAPIR_MCP_ELEMENT_SETS",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -170,6 +171,42 @@ def test_change_log_directory_default_environment_and_cli_precedence(monkeypatch
     assert parse_args().change_log == tmp_path / "from-env"
     monkeypatch.setattr(sys, "argv", ["server.py", "--change-log", str(tmp_path / "from-cli")])
     assert parse_args().change_log == tmp_path / "from-cli"
+
+
+def test_element_sets_default_environment_and_cli_precedence(monkeypatch):
+    from tapir_archicad_mcp.server import parse_args
+
+    _clear_http_env(monkeypatch)
+    monkeypatch.setattr(sys, "argv", ["server.py"])
+    assert parse_args().element_sets is True
+    monkeypatch.setenv("TAPIR_MCP_ELEMENT_SETS", "off")
+    assert parse_args().element_sets is False
+    monkeypatch.setattr(sys, "argv", ["server.py", "--element-sets", "on"])
+    assert parse_args().element_sets is True
+    monkeypatch.delenv("TAPIR_MCP_ELEMENT_SETS")
+    monkeypatch.setattr(sys, "argv", ["server.py", "--element-sets", "off"])
+    assert parse_args().element_sets is False
+
+
+def test_invalid_element_sets_value_fails_at_startup(monkeypatch):
+    from tapir_archicad_mcp.server import parse_args
+
+    _clear_http_env(monkeypatch)
+    monkeypatch.setattr(sys, "argv", ["server.py", "--element-sets", "maybe"])
+    with pytest.raises(SystemExit) as error:
+        parse_args()
+    assert error.value.code == 2
+
+
+def test_element_sets_flag_reaches_the_app(monkeypatch):
+    import tapir_archicad_mcp.app as app_module
+    from tapir_archicad_mcp.server import main
+
+    _clear_http_env(monkeypatch)
+    monkeypatch.setattr(app_module, "element_sets_enabled", True)
+    monkeypatch.setattr(sys, "argv", ["server.py", "--element-sets", "off"])
+    main()
+    assert app_module.element_sets_enabled is False
 
 
 @pytest.mark.parametrize("flag,value", [
