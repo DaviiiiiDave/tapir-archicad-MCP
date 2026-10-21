@@ -135,10 +135,16 @@ def expand_set_references(
             if not mentions_set_reference(value):
                 continue
             if not is_set_reference(value):
+                if list(value) == ["set"]:
+                    raise ToolError(
+                        f"params.{field}: the set id is not valid. Set ids look like set:ab12cd34 and come from "
+                        f"the 'set' summary of a read result."
+                    )
+                keys = ", ".join(sorted(key if len(key) <= 40 else key[:40] + "…" for key in map(str, value)))
                 raise ToolError(
                     f'params.{field}: a set reference must be exactly {{"set": "<set id from a read result>"}}: '
                     f"a string id (like set:ab12cd34) and no other keys. "
-                    f"Got keys: {', '.join(sorted(map(str, value)))}."
+                    f"Got keys: {keys}."
                 )
             element_set = resolve(value["set"])
             expanded_params[field] = [{"elementId": {"guid": guid}} for guid in element_set.guids]

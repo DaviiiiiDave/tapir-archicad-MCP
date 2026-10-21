@@ -192,7 +192,21 @@ async def test_malformed_set_id_is_refused_without_echo(fake_archicad, value):
 
     assert "yyyy" not in str(raised.value)
     assert "aaaa" not in str(raised.value)
-    assert "Got keys: set." in str(raised.value)
+    assert str(raised.value) == (
+        "params.elements: the set id is not valid. Set ids look like set:ab12cd34 and come from the 'set' "
+        "summary of a read result."
+    )
+    assert fake_archicad.calls == []
+
+
+@pytest.mark.asyncio
+async def test_malformed_reference_does_not_echo_long_key_names(fake_archicad):
+    long_key = "k" * 300
+
+    with pytest.raises(ToolError) as raised:
+        await archicad_read_tool("elements_highlight_elements", _highlight({"set": "set:00000000", long_key: 1}))
+
+    assert long_key not in str(raised.value)
     assert fake_archicad.calls == []
 
 
