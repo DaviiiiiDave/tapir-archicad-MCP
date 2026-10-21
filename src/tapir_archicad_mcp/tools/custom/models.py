@@ -73,6 +73,12 @@ class CommandOverview(BaseModel):
             "or affects other users and needs confirm=true."
         )
     )
+    acceptsSets: bool = Field(
+        description=(
+            "True if an element-list parameter of this command also accepts a set reference "
+            '{"set": "set:ab12cd34"} instead of a list of elements.'
+        )
+    )
 
 
 class CommandSchema(BaseModel):

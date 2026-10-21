@@ -26,6 +26,12 @@ from tapir_archicad_mcp.outcome import DEFAULT_RESULT_FIELDS, RESULT_LIST_FIELDS
 from tapir_archicad_mcp.pagination import PaginationRequest, prepare_result
 from tapir_archicad_mcp.project_identity import project_fingerprint, read_project_fingerprint
 from tapir_archicad_mcp.request_lifecycle import DispatchLifecycle
+from tapir_archicad_mcp.set_references import (
+    SET_EXPANSION_FIELDS,
+    expand_set_references,
+    mentions_set_reference,
+    resolve_set,
+)
 from tapir_archicad_mcp.tools.custom.models import (
     CommandOverview,
     CommandSchema,
@@ -183,6 +189,7 @@ def archicad_list_commands(query: str | None = None, group: str | None = None) -
             name=tool["name"],
             description=tool["description"],
             kind=tool["kind"],
+            acceptsSets=tool["name"] in SET_EXPANSION_FIELDS,
         )
         for tool in TOOL_DISCOVERY_CATALOG.values()
         if (group_prefix is None or tool["name"].startswith(group_prefix))
@@ -282,8 +289,9 @@ async def _run_command(name: str, arguments: dict, *, read_only: bool) -> dict:
     tool_entry = get_tool_entry(name)
     if read_only and tool_entry.kind != "read":
         raise ToolError(f"'{name}' changes the project. Use archicad_call_tool for commands that are not kind='read'.")
+    expanded_arguments, sets = await _expand_set_references(name, arguments)
     try:
-        validated_arguments = tool_entry.arguments_model.model_validate(arguments)
+        validated_arguments = tool_entry.arguments_model.model_validate(expanded_arguments)
     except ValidationError as e:
         message = format_validation_error(name, e)
         log.error(f"Validation error for arguments of {name!r}: {message}")
@@ -301,10 +309,28 @@ async def _run_command(name: str, arguments: dict, *, read_only: bool) -> dict:
         return await asyncio.to_thread(_read_cached_page, name, tool_entry, validated_arguments, store)
     job = store.submit(
         name, port, arguments,
-        lambda handle: _execute_tool(name, tool_entry, validated_arguments, handle),
+        lambda handle: _execute_tool(name, tool_entry, validated_arguments, handle, sets),
     )
     await store.wait(job)
     return store.initial_result(job)
+
+
+async def _expand_set_references(name: str, arguments: dict) -> tuple[dict, dict[str, str]]:
+    """Replace {"set": ...} references in top-level params fields. Anything else is left for validation to report."""
+    port = arguments.get("port")
+    params = arguments.get("params")
+    if (
+        not isinstance(port, int)
+        or isinstance(port, bool)
+        or not isinstance(params, dict)
+        or not any(mentions_set_reference(value) for value in params.values())
+    ):
+        return arguments, {}
+    # Reading the header and the project identity can block.
+    return await asyncio.to_thread(
+        expand_set_references, name, arguments, lambda set_id: resolve_set(_get_header(port), port, set_id)
+    )
+
 
 def _read_cached_page(name: str, tool_entry: ToolRegistryEntry, arguments: Any, store: JobStore) -> dict:
     # MultiConn's public header properties can trigger discovery; keep that work
@@ -315,7 +341,9 @@ def _read_cached_page(name: str, tool_entry: ToolRegistryEntry, arguments: Any, 
     return store.get_page(arguments.page_token, request)
 
 
-def _execute_tool(name: str, tool_entry: ToolRegistryEntry, validated_arguments: Any, job_handle: str) -> Any:
+def _execute_tool(
+    name: str, tool_entry: ToolRegistryEntry, validated_arguments: Any, job_handle: str, sets: dict[str, str]
+) -> Any:
     port = validated_arguments.port
     conn_header = _get_header(port)
 
@@ -330,11 +358,11 @@ def _execute_tool(name: str, tool_entry: ToolRegistryEntry, validated_arguments:
             result = _dispatch_command(name, tool_entry, call_args, port)
     except Exception as e:
         if changes_project:
-            _record_failed_change(name, tool_entry, validated_arguments, conn_header, job_handle, e)
+            _record_failed_change(name, tool_entry, validated_arguments, conn_header, job_handle, sets, e)
         raise
     if changes_project:
         result = _with_outcome(name, {} if result is None else result)
-        result = _record_change(name, tool_entry, validated_arguments, conn_header, job_handle, result)
+        result = _record_change(name, tool_entry, validated_arguments, conn_header, job_handle, sets, result)
     if tool_entry.pagination_field is None:
         return result
     request = _pagination_request(name, tool_entry, validated_arguments, conn_header)
@@ -358,6 +386,7 @@ def _write_change_log(
     validated_arguments: Any,
     conn_header: ConnHeader,
     job_handle: str,
+    sets: dict[str, str],
     result: dict | None,
     failure: Exception | None,
 ) -> Path:
@@ -377,6 +406,8 @@ def _write_change_log(
     }
     if project_error is not None:
         entry["projectError"] = project_error
+    if sets:
+        entry["sets"] = sets
     return change_log_instance.get().record(entry)
 
 
@@ -392,11 +423,12 @@ def _record_change(
     validated_arguments: Any,
     conn_header: ConnHeader,
     job_handle: str,
+    sets: dict[str, str],
     result: dict,
 ) -> dict:
     """Write the change-log line. Returns the result, with the log path (or the reason it failed) added."""
     try:
-        path = _write_change_log(name, tool_entry, validated_arguments, conn_header, job_handle, result, None)
+        path = _write_change_log(name, tool_entry, validated_arguments, conn_header, job_handle, sets, result, None)
     except Exception as e:
         # The command has already run in Archicad: a logging problem must not hide its result.
         log.error(f"Could not write the change log for {name}: {e}")
@@ -410,11 +442,12 @@ def _record_failed_change(
     validated_arguments: Any,
     conn_header: ConnHeader,
     job_handle: str,
+    sets: dict[str, str],
     failure: Exception,
 ) -> None:
     """Write the change-log line for a failed command; if that fails too, say so in the error that is raised."""
     try:
-        _write_change_log(name, tool_entry, validated_arguments, conn_header, job_handle, None, failure)
+        _write_change_log(name, tool_entry, validated_arguments, conn_header, job_handle, sets, None, failure)
     except Exception as e:
         log.error(f"Could not write the change log for {name}: {e}")
         original = (
