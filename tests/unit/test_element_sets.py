@@ -36,7 +36,7 @@ def test_lru_evicts_least_recently_used():
     s2 = store.create(PORT, PROJECT, ["b"], {})
     store.get(s1.id, PORT, PROJECT)
     s3 = store.create(PORT, PROJECT, ["c"], {})
-    with pytest.raises(ToolError):
+    with pytest.raises(ToolError, match="lost when the server restarts"):
         store.get(s2.id, PORT, PROJECT)
     assert store.get(s1.id, PORT, PROJECT) is s1
     assert store.get(s3.id, PORT, PROJECT) is s3
@@ -47,7 +47,7 @@ def test_unknown_set_explains_restart():
     with pytest.raises(ToolError) as error:
         store.get("set:nope", PORT, PROJECT)
     assert "lost when the server restarts" in str(error.value)
-    assert "create it again" in str(error.value)
+    assert "create it again from its query or definition" in str(error.value)
 
 
 def test_get_refuses_other_port():

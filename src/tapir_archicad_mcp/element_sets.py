@@ -58,7 +58,7 @@ class SetStore:
             if element_set is None:
                 raise ToolError(
                     f"Unknown set '{set_id}'. Sets are lost when the server restarts and the least recently used "
-                    f"are dropped when the store is full; create it again."
+                    f"are dropped when the store is full; create it again from its query or definition."
                 )
             if element_set.port != port:
                 raise ToolError(
