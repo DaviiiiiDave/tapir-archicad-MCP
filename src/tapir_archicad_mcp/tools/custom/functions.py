@@ -250,6 +250,8 @@ def archicad_get_command_schema(command_name: str) -> CommandSchema:
         "Long executions return status='running' and a jobHandle; retrieve them with archicad_get_job. "
         "If a response is lost or cancelled, list jobs with archicad_get_job() before retrying a write. "
         "Cancelling this request does not cancel an admitted execution. "
+        "Results of element-list reads may carry a \"set\" summary (set id, count, types); where a command takes a list "
+        "of elements, pass {\"set\": \"<id>\"} instead (see 'acceptsSets' in archicad_list_commands). "
         "Commands with kind='read' (see archicad_list_commands) should go through archicad_read_tool instead. "
         "Commands with kind='irreversible' additionally need \"confirm\": true in the arguments, "
         "which you may only set after the user agreed."
@@ -274,6 +276,8 @@ async def archicad_call_tool(name: str, arguments: dict) -> Annotated[CallToolRe
         "(kind='read' in archicad_list_commands); it may change the selection or view. "
         "Same workflow and arguments as archicad_call_tool: get the schema with 'archicad_get_command_schema' first, "
         "pass a 'port', and follow 'next_page_token' with 'page_token'. "
+        "Results of element-list reads may carry a \"set\" summary (set id, count, types); where a command takes a list "
+        "of elements, pass {\"set\": \"<id>\"} instead (see 'acceptsSets' in archicad_list_commands). "
         "Commands that change the project are rejected; use archicad_call_tool for those."
     ),
     annotations=ToolAnnotations(

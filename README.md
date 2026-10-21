@@ -84,7 +84,7 @@ You can customize the server via CLI flags or environment variables:
 | `--job-ttl-seconds` | `TAPIR_MCP_JOB_TTL_SECONDS` | `86400` | Seconds to keep finished jobs; `0` disables time-based expiry |
 | `--max-completed-jobs` | `TAPIR_MCP_MAX_COMPLETED_JOBS` | `128` | Maximum number of finished jobs to keep |
 | `--change-log` | `TAPIR_MCP_CHANGE_LOG` | per-user data directory (Windows `%APPDATA%\tapir-archicad-mcp\change-log`) | Directory for the daily JSONL record of every dispatched command that changes the project, including failed ones |
-| `--element-sets` | `TAPIR_MCP_ELEMENT_SETS` | `on` | `on` stores the element lists returned by read commands as sets and replaces lists of more than 20 elements by a summary; `off` returns the raw lists, paginated |
+| `--element-sets` | `TAPIR_MCP_ELEMENT_SETS` | `on` | `on` stores the element lists returned by `elements_get_all_elements`, `elements_get_elements_by_type`, `elements_get_elements_by_classification`, `elements_get_selected_elements`, `elements_filter_elements` and `issues_get_elements_attached_to_issue` as sets and replaces lists of more than 20 elements by a summary; `off` returns the raw lists, paginated, and creates no sets |
 
 CLI flags override environment variables.
 
@@ -101,6 +101,20 @@ Call `archicad_get_job(job_handle="job:83af21...")` to check progress and retrie
 If a response is lost, call `archicad_get_job()` to list recent jobs before repeating a command that changes the project. Cancelling a request does not stop a command already started, and retrying it may duplicate changes.
 
 Jobs remain available across HTTP client reconnects while the server is running, but are lost on server restart. Retention defaults to 24 hours and a maximum of 128 finished jobs.
+
+## Element sets
+
+An element set is a snapshot of element GUIDs that the server keeps in memory, so a large element list does not have to travel through the model.
+
+-   Six commands create sets: `elements_get_all_elements`, `elements_get_elements_by_type`, `elements_get_elements_by_classification`, `elements_get_selected_elements`, `elements_filter_elements` and `issues_get_elements_attached_to_issue`. Their result carries a `set` summary with the set id (`set:ab12cd34`), the element count, the count per element type and ready-to-edit follow-up calls.
+-   Up to 20 elements the list stays in the result next to the summary. Above that the list is replaced by the summary, and the result carries an `envelope` entry with the total.
+-   Where a command takes a list of elements, pass `{"set": "<id>"}` instead of the list. `archicad_list_commands` shows `acceptsSets` per command, and `archicad_get_command_schema` shows the option on each field.
+-   A set belongs to one port and one project. After Save as, or when another project is open on that port, the set is refused.
+-   Sets live in memory only: they are lost when the server restarts, and the least recently used are dropped (64 sets).
+-   A set from an unsaved (untitled) project cannot be used in write commands, because unsaved projects cannot be told apart. Save the project and re-run the read command. Reads still work.
+-   If the project identity cannot be read, no set is made: the result keeps the full paginated list and carries a `setError`.
+-   The type counts in the summary need Archicad 26 or later. If counting fails, the read fails and creates no set; start the server with `--element-sets off` to get the raw lists again.
+-   Writes with a set record the set id in the change log preview, and the set's count and full GUID list in the `sets` entry.
 
 ## Usage
 

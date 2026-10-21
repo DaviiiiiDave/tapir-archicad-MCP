@@ -105,8 +105,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--element-sets", type=_on_off,
         default=os.getenv("TAPIR_MCP_ELEMENT_SETS", "on"),
-        help="'on' stores element lists returned by read commands as sets and replaces large ones with a summary; "
-             "'off' returns the raw lists, paginated (default: on).",
+        help="'on' stores the element list returned by six read commands (see the README) as a set and replaces "
+             "lists of more than 20 elements with a summary; 'off' returns the raw lists, paginated, and creates "
+             "no sets (default: on).",
     )
     return parser.parse_args()
 

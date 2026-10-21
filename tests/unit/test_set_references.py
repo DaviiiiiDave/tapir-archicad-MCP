@@ -481,3 +481,12 @@ async def test_untitled_set_still_works_for_reads(fake_archicad):
 
     ((_, parameters),) = fake_archicad.calls
     assert parameters["elements"] == [{"elementId": {"guid": g}} for g in guids]
+
+
+@pytest.mark.parametrize("tool", ["archicad_call_tool", "archicad_read_tool"])
+def test_tool_descriptions_explain_sets(tool):
+    description = {t.name: t.description for t in mcp._tool_manager.list_tools()}[tool]
+
+    assert 'Results of element-list reads may carry a "set" summary' in description
+    assert 'pass {"set": "<id>"}' in description
+    assert "acceptsSets" in description
