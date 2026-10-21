@@ -90,11 +90,18 @@ def _tapir_types(conn_header: ConnHeader, guids: Sequence[str]) -> list[str]:
             parameters={"elements": [{"elementId": {"guid": guid}} for guid in guids], "fields": ["type"]},
         )
     except APIErrorBase as e:
-        raise _type_count_error(e.message) from None
+        raise _tapir_type_error(e.message) from None
     details = response["detailsOfElements"]
     if len(details) != len(guids):
-        raise _type_count_error(f"Tapir returned {len(details)} type entries for {len(guids)} elements")
+        raise _tapir_type_error(f"Tapir returned {len(details)} type entries for {len(guids)} elements")
     return [detail.get("type", UNREADABLE_TYPE) for detail in details]
+
+
+def _tapir_type_error(reason: str) -> ToolError:
+    return ToolError(
+        f"The elements were read, but looking up the types of drafting elements through Tapir failed ({reason}); "
+        f"no set was created. Start the server with --element-sets off to get the raw list."
+    )
 
 
 def _type_count_error(reason: str) -> ToolError:

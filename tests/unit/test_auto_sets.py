@@ -191,6 +191,12 @@ REJECTED_BY_OFFICIAL_API = {
 }
 
 
+TAPIR_TYPES_FAILED = (
+    "The elements were read, but looking up the types of drafting elements through Tapir failed ({reason}); "
+    "no set was created. Start the server with --element-sets off to get the raw list."
+)
+
+
 @pytest.mark.asyncio
 async def test_types_the_official_api_rejects_come_from_tapir(fake_archicad):
     fake_archicad.on_tapir_command("GetAllElements", {"elements": _elements(3)})
@@ -225,7 +231,7 @@ async def test_failing_tapir_type_lookup_is_explained(fake_archicad, set_store):
     with pytest.raises(ToolError) as raised:
         await archicad_read_tool("elements_get_all_elements", {"port": PORT, "params": {}})
 
-    assert str(raised.value) == TYPES_FAILED.format(reason="no fields filter")
+    assert str(raised.value) == TAPIR_TYPES_FAILED.format(reason="no fields filter")
     assert len(set_store) == 0
 
 
@@ -238,7 +244,7 @@ async def test_tapir_returning_a_different_number_of_types_is_refused(fake_archi
     with pytest.raises(ToolError) as raised:
         await archicad_read_tool("elements_get_all_elements", {"port": PORT, "params": {}})
 
-    assert str(raised.value) == TYPES_FAILED.format(reason="Tapir returned 1 type entries for 2 elements")
+    assert str(raised.value) == TAPIR_TYPES_FAILED.format(reason="Tapir returned 1 type entries for 2 elements")
     assert len(set_store) == 0
 
 
