@@ -7,7 +7,8 @@ from multiconn_archicad import ArchicadLocation, Port, ProductInfo, SoloProjectI
 
 import tapir_archicad_mcp.model_configuration  # noqa: F401
 from tapir_archicad_mcp.change_log import ChangeLog
-from tapir_archicad_mcp.context import change_log_instance, job_store_instance, multi_conn_instance
+from tapir_archicad_mcp.context import change_log_instance, job_store_instance, multi_conn_instance, set_store_instance
+from tapir_archicad_mcp.element_sets import SetStore
 from tapir_archicad_mcp.jobs import JobSettings, JobStore
 
 
@@ -22,11 +23,25 @@ def job_store(monkeypatch, job_clock):
 
 
 @pytest.fixture(autouse=True)
+def element_sets_off(monkeypatch):
+    """Tests of raw element lists and pagination run without auto-sets; test_auto_sets.py turns them on."""
+    monkeypatch.setattr("tapir_archicad_mcp.app.element_sets_enabled", False)
+
+
+@pytest.fixture(autouse=True)
 def change_log(tmp_path):
     log = ChangeLog(tmp_path / "change-log")
     change_log_instance.set(log)
     yield log
     change_log_instance.clear()
+
+
+@pytest.fixture(autouse=True)
+def set_store():
+    store = SetStore()
+    set_store_instance.set(store)
+    yield store
+    set_store_instance.clear()
 
 
 @pytest.fixture

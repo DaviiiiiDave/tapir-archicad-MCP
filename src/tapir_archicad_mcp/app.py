@@ -9,12 +9,20 @@ from multiconn_archicad import MultiConn
 from starlette.applications import Starlette
 
 from tapir_archicad_mcp.change_log import ChangeLog, default_change_log_dir
-from tapir_archicad_mcp.context import change_log_instance, job_store_instance, mcp_instance, multi_conn_instance
+from tapir_archicad_mcp.context import (
+    change_log_instance,
+    job_store_instance,
+    mcp_instance,
+    multi_conn_instance,
+    set_store_instance,
+)
+from tapir_archicad_mcp.element_sets import SetStore
 from tapir_archicad_mcp.jobs import JobSettings, JobStore
 
 log = logging.getLogger(__name__)
 job_settings = JobSettings()
 change_log_directory: Path | None = None
+element_sets_enabled: bool = True
 
 
 class ArchicadMCPServer(MCPServer):
@@ -56,6 +64,7 @@ async def app_lifespan(server: MCPServer) -> AsyncIterator[None]:
     job_store = JobStore(job_settings)
     job_store_instance.set(job_store)
     change_log_instance.set(ChangeLog(change_log_directory or default_change_log_dir()))
+    set_store_instance.set(SetStore())
 
     cleanup = asyncio.create_task(job_store.cleanup_loop())
     try:
@@ -72,6 +81,7 @@ async def app_lifespan(server: MCPServer) -> AsyncIterator[None]:
         await asyncio.to_thread(job_store.shutdown)
         job_store_instance.clear()
         change_log_instance.clear()
+        set_store_instance.clear()
         mcp_instance.clear()
         multi_conn_instance.clear()
 

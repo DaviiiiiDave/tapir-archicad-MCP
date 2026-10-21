@@ -7,6 +7,8 @@ from mcp.server.mcpserver.exceptions import ToolError
 from multiconn_archicad.constants import DEFAULT_PORT_RANGE
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, create_model
 
+from tapir_archicad_mcp.set_references import patch_schema
+
 log = logging.getLogger(__name__)
 
 
@@ -121,7 +123,7 @@ def get_tool_input_schema(name: str) -> dict[str, Any]:
     """
     schema = _TOOL_INPUT_SCHEMA_CACHE.get(name)
     if schema is None:
-        schema = get_tool_entry(name).arguments_model.model_json_schema()
+        schema = patch_schema(name, get_tool_entry(name).arguments_model.model_json_schema())
         _TOOL_INPUT_SCHEMA_CACHE[name] = schema
     return schema
 

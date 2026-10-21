@@ -39,6 +39,12 @@ def _positive_int(value: str) -> int:
     return number
 
 
+def _on_off(value: str) -> bool:
+    if value not in ("on", "off"):
+        raise argparse.ArgumentTypeError("Expected 'on' or 'off'.")
+    return value == "on"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the Archicad Tapir MCP server.")
     parser.add_argument(
@@ -96,6 +102,13 @@ def parse_args() -> argparse.Namespace:
         help="Directory for the daily JSONL record of every command that changes the project "
              "(default: per-user data directory).",
     )
+    parser.add_argument(
+        "--element-sets", type=_on_off,
+        default=os.getenv("TAPIR_MCP_ELEMENT_SETS", "on"),
+        help="'on' stores the element list returned by six read commands (see the README) as a set and replaces "
+             "lists of more than 20 elements with a summary; 'off' returns the raw lists, paginated, and creates "
+             "no sets (default: on).",
+    )
     return parser.parse_args()
 
 
@@ -121,6 +134,7 @@ def main():
         max_completed_jobs=args.max_completed_jobs,
     )
     app_module.change_log_directory = args.change_log
+    app_module.element_sets_enabled = args.element_sets
     sys.argv = [sys.argv[0]]
 
     logging.info(

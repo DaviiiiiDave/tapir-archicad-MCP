@@ -18,14 +18,23 @@ from multiconn_archicad import (
 from multiconn_archicad.errors import AddOnCommandUnavailable, APIErrorBase
 from pydantic import ValidationError
 
+import tapir_archicad_mcp.app as app_settings
 from tapir_archicad_mcp.app import mcp
+from tapir_archicad_mcp.auto_sets import AUTO_SET_FIELDS, apply_auto_set
 from tapir_archicad_mcp.context import change_log_instance, job_store_instance, multi_conn_instance
+from tapir_archicad_mcp.element_sets import ElementSet
 from tapir_archicad_mcp.images import build_image_result, extract_images, to_tool_result
 from tapir_archicad_mcp.jobs import JobStore, arguments_preview, outcome_may_be_unknown, upstream_error
 from tapir_archicad_mcp.outcome import DEFAULT_RESULT_FIELDS, RESULT_LIST_FIELDS, summarize_execution_results
 from tapir_archicad_mcp.pagination import PaginationRequest, prepare_result
 from tapir_archicad_mcp.project_identity import project_fingerprint, read_project_fingerprint
 from tapir_archicad_mcp.request_lifecycle import DispatchLifecycle
+from tapir_archicad_mcp.set_references import (
+    SET_EXPANSION_FIELDS,
+    expand_set_references,
+    mentions_set_reference,
+    resolve_set,
+)
 from tapir_archicad_mcp.tools.custom.models import (
     CommandOverview,
     CommandSchema,
@@ -183,6 +192,7 @@ def archicad_list_commands(query: str | None = None, group: str | None = None) -
             name=tool["name"],
             description=tool["description"],
             kind=tool["kind"],
+            acceptsSets=tool["name"] in SET_EXPANSION_FIELDS,
         )
         for tool in TOOL_DISCOVERY_CATALOG.values()
         if (group_prefix is None or tool["name"].startswith(group_prefix))
@@ -240,6 +250,8 @@ def archicad_get_command_schema(command_name: str) -> CommandSchema:
         "Long executions return status='running' and a jobHandle; retrieve them with archicad_get_job. "
         "If a response is lost or cancelled, list jobs with archicad_get_job() before retrying a write. "
         "Cancelling this request does not cancel an admitted execution. "
+        "Results of element-list reads may carry a \"set\" summary (set id, count, types); where a command takes a list "
+        "of elements, pass {\"set\": \"<id>\"} instead (see 'acceptsSets' in archicad_list_commands). "
         "Commands with kind='read' (see archicad_list_commands) should go through archicad_read_tool instead. "
         "Commands with kind='irreversible' additionally need \"confirm\": true in the arguments, "
         "which you may only set after the user agreed."
@@ -264,6 +276,8 @@ async def archicad_call_tool(name: str, arguments: dict) -> Annotated[CallToolRe
         "(kind='read' in archicad_list_commands); it may change the selection or view. "
         "Same workflow and arguments as archicad_call_tool: get the schema with 'archicad_get_command_schema' first, "
         "pass a 'port', and follow 'next_page_token' with 'page_token'. "
+        "Results of element-list reads may carry a \"set\" summary (set id, count, types); where a command takes a list "
+        "of elements, pass {\"set\": \"<id>\"} instead (see 'acceptsSets' in archicad_list_commands). "
         "Commands that change the project are rejected; use archicad_call_tool for those."
     ),
     annotations=ToolAnnotations(
@@ -282,8 +296,9 @@ async def _run_command(name: str, arguments: dict, *, read_only: bool) -> dict:
     tool_entry = get_tool_entry(name)
     if read_only and tool_entry.kind != "read":
         raise ToolError(f"'{name}' changes the project. Use archicad_call_tool for commands that are not kind='read'.")
+    expanded_arguments, sets = await _expand_set_references(name, arguments, for_write=tool_entry.kind != "read")
     try:
-        validated_arguments = tool_entry.arguments_model.model_validate(arguments)
+        validated_arguments = tool_entry.arguments_model.model_validate(expanded_arguments)
     except ValidationError as e:
         message = format_validation_error(name, e)
         log.error(f"Validation error for arguments of {name!r}: {message}")
@@ -301,10 +316,35 @@ async def _run_command(name: str, arguments: dict, *, read_only: bool) -> dict:
         return await asyncio.to_thread(_read_cached_page, name, tool_entry, validated_arguments, store)
     job = store.submit(
         name, port, arguments,
-        lambda handle: _execute_tool(name, tool_entry, validated_arguments, handle),
+        lambda handle: _execute_tool(name, tool_entry, validated_arguments, handle, sets),
     )
     await store.wait(job)
     return store.initial_result(job)
+
+
+async def _expand_set_references(name: str, arguments: dict, *, for_write: bool) -> tuple[dict, dict[str, ElementSet]]:
+    """Replace {"set": ...} references in top-level params fields.
+
+    Arguments without any set reference (including a missing or non-int port, or non-dict params) pass through
+    unchanged for validation to report; unusable references raise ToolError here.
+    """
+    port = arguments.get("port")
+    params = arguments.get("params")
+    if (
+        not isinstance(port, int)
+        or isinstance(port, bool)
+        or not isinstance(params, dict)
+        or not any(mentions_set_reference(value) for value in params.values())
+    ):
+        return arguments, {}
+    # Reading the header and the project identity can block.
+    return await asyncio.to_thread(
+        expand_set_references,
+        name,
+        arguments,
+        lambda set_id: resolve_set(_get_header(port), port, set_id, for_write=for_write),
+    )
+
 
 def _read_cached_page(name: str, tool_entry: ToolRegistryEntry, arguments: Any, store: JobStore) -> dict:
     # MultiConn's public header properties can trigger discovery; keep that work
@@ -315,7 +355,9 @@ def _read_cached_page(name: str, tool_entry: ToolRegistryEntry, arguments: Any, 
     return store.get_page(arguments.page_token, request)
 
 
-def _execute_tool(name: str, tool_entry: ToolRegistryEntry, validated_arguments: Any, job_handle: str) -> Any:
+def _execute_tool(
+    name: str, tool_entry: ToolRegistryEntry, validated_arguments: Any, job_handle: str, sets: dict[str, ElementSet]
+) -> Any:
     port = validated_arguments.port
     conn_header = _get_header(port)
 
@@ -330,13 +372,17 @@ def _execute_tool(name: str, tool_entry: ToolRegistryEntry, validated_arguments:
             result = _dispatch_command(name, tool_entry, call_args, port)
     except Exception as e:
         if changes_project:
-            _record_failed_change(name, tool_entry, validated_arguments, conn_header, job_handle, e)
+            _record_failed_change(name, tool_entry, validated_arguments, conn_header, job_handle, sets, e)
         raise
     if changes_project:
         result = _with_outcome(name, {} if result is None else result)
-        result = _record_change(name, tool_entry, validated_arguments, conn_header, job_handle, result)
+        result = _record_change(name, tool_entry, validated_arguments, conn_header, job_handle, sets, result)
+    elif app_settings.element_sets_enabled and name in AUTO_SET_FIELDS:
+        parameters = _serialized_parameters(validated_arguments.params if tool_entry.params_model else None)
+        result = apply_auto_set(name, result, conn_header, port, parameters)
     if tool_entry.pagination_field is None:
         return result
+    # A list that became a set summary is no longer in the result, so prepare_result leaves it unpaginated.
     request = _pagination_request(name, tool_entry, validated_arguments, conn_header)
     return prepare_result(result, request, job_handle.removeprefix("job:"))
 
@@ -358,18 +404,21 @@ def _write_change_log(
     validated_arguments: Any,
     conn_header: ConnHeader,
     job_handle: str,
+    sets: dict[str, ElementSet],
     result: dict | None,
     failure: Exception | None,
 ) -> Path:
     project, project_error = read_project_fingerprint(conn_header)
+    arguments = validated_arguments.model_dump(mode="json", by_alias=True, exclude_none=True)
+    for path, element_set in sets.items():
+        # The preview shows the set id, not thousands of GUIDs; the "sets" entry below has the elements.
+        arguments["params"][path.removeprefix("params.")] = {"set": element_set.id}
     entry = {
         "port": validated_arguments.port,
         "project": project,
         "command": name,
         "kind": tool_entry.kind,
-        "argumentsPreview": arguments_preview(
-            validated_arguments.model_dump(mode="json", by_alias=True, exclude_none=True)
-        ),
+        "argumentsPreview": arguments_preview(arguments),
         "status": _change_status(failure),
         "outcome": result.get("outcome") if result is not None else None,
         "error": str(failure) if failure is not None else None,
@@ -377,6 +426,11 @@ def _write_change_log(
     }
     if project_error is not None:
         entry["projectError"] = project_error
+    if sets:
+        entry["sets"] = {
+            path: {"set": element_set.id, "count": len(element_set.guids), "elements": list(element_set.guids)}
+            for path, element_set in sets.items()
+        }
     return change_log_instance.get().record(entry)
 
 
@@ -392,11 +446,12 @@ def _record_change(
     validated_arguments: Any,
     conn_header: ConnHeader,
     job_handle: str,
+    sets: dict[str, ElementSet],
     result: dict,
 ) -> dict:
     """Write the change-log line. Returns the result, with the log path (or the reason it failed) added."""
     try:
-        path = _write_change_log(name, tool_entry, validated_arguments, conn_header, job_handle, result, None)
+        path = _write_change_log(name, tool_entry, validated_arguments, conn_header, job_handle, sets, result, None)
     except Exception as e:
         # The command has already run in Archicad: a logging problem must not hide its result.
         log.error(f"Could not write the change log for {name}: {e}")
@@ -410,11 +465,12 @@ def _record_failed_change(
     validated_arguments: Any,
     conn_header: ConnHeader,
     job_handle: str,
+    sets: dict[str, ElementSet],
     failure: Exception,
 ) -> None:
     """Write the change-log line for a failed command; if that fails too, say so in the error that is raised."""
     try:
-        _write_change_log(name, tool_entry, validated_arguments, conn_header, job_handle, None, failure)
+        _write_change_log(name, tool_entry, validated_arguments, conn_header, job_handle, sets, None, failure)
     except Exception as e:
         log.error(f"Could not write the change log for {name}: {e}")
         original = (
