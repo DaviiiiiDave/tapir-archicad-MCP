@@ -179,6 +179,14 @@ current: 3
 
 **Stage 3 ends here:** review, PR, Dave's merge, then Stage 3→4.
 
+**Amendments after the Stage 3 review (approved by Dave, 2026-10-21).** They override Tasks 2 and 3 where they differ.
+- **`next`.** It is a list (spec §5.4). In Stage 3 it names only registered commands: `elements_change_selection_of_elements` (`addElementsToSelection`), `navigator_fit_in_window` and `elements_filter_elements`, each with `{"set": <id>}`. Placeholders are written `<...>`. Task 7 adds the `sets_rows` template and Task 8 the `sets_aggregate` template.
+- **Envelope.** A list replaced by a summary carries `envelope: {<field>: {total: n, returned: 0, truncated: true}}` (spec §5.3). This replaces "no `envelope`" in `test_large_result_is_replaced_by_a_summary`.
+- **Untitled sets.** A set bound to `"untitled"` is refused in write and irreversible commands. Reads keep working and carry the untitled warning.
+- **Empty sets.** A reference to an empty set is refused before anything reaches Archicad.
+- **Change log.** For a write with a set reference, `argumentsPreview` shows `{"set": <id>}` in place of the expanded list. The `sets` entry records, per field, the set id, its count and the full GUID list.
+- **Archicad version.** `API.GetTypesOfElements` exists from Archicad 26 on (Graphisoft, Archicad 26 new features). A failing type count raises a `ToolError` that names `--element-sets off`. The README says the summaries need Archicad 26 or later.
+
 ## Stage 4: Typed values and criteria (spec step 6)
 
 ### Task 4: Typed value cells with the Tapir fallback
