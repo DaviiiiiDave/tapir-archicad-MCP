@@ -107,6 +107,8 @@ def _check_types(cell: Cell, criterion: Criterion) -> str:
     }[kind]
     if not right_type:
         raise _mismatch(operator, f"a {VALUE_NOUNS[kind]} value", criterion.property.guid, cell.value_type)
+    if kind == "number" and not math.isfinite(value):
+        raise _mismatch(operator, "a finite numeric value", criterion.property.guid, cell.value_type)
     return kind
 
 

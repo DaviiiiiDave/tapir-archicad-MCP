@@ -46,6 +46,40 @@ def test_every_operator_on_every_cell_kind(operator, value, expected):
     assert {kind: matches(cell, _criterion(operator, value)) for kind, cell in CELLS.items()} == expected
 
 
+TEXT_CELLS = {
+    "normal": Cell("normal", "Brandwand", "string"),
+    "userUndefined": Cell("userUndefined", None, "string"),
+    "notAvailable": Cell("notAvailable", None, "string"),
+    "notEvaluated": Cell("notEvaluated", None, "string"),
+    "untyped": Cell("normal", "Brandwand", "string", typed=False),
+    "untypedNotAvailable": Cell("notAvailable", None, "string", typed=False),
+    "untypedUserUndefined": Cell("userUndefined", None, "string", typed=False),
+}
+
+
+@pytest.mark.parametrize(
+    ("operator", "value", "expected"),
+    [
+        _row("Contains", "WAND", True, False, False, False, True, False, False),
+        _row("Equal", "Brandwand", True, False, False, False, True, False, False),
+        _row("NotEqual", "Decke", True, False, False, False, True, False, False),
+    ],
+)
+def test_text_operators_on_every_cell_kind(operator, value, expected):
+    assert {kind: matches(cell, _criterion(operator, value)) for kind, cell in TEXT_CELLS.items()} == expected
+
+
+@pytest.mark.parametrize("operator", ["Equal", "NotEqual", "Greater", "GreaterOrEqual", "Less", "LessOrEqual"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_numbers_are_rejected(operator, value):
+    with pytest.raises(ToolError) as error:
+        matches(CELLS["normal"], _criterion(operator, value))
+    assert GUID in str(error.value)
+    assert operator in str(error.value)
+    assert "nan" not in str(error.value).lower()
+    assert "inf" not in str(error.value).lower()
+
+
 def test_undefined_never_matches_not_equal():
     for kind, cell in CELLS.items():
         if cell.status != "normal":
@@ -126,6 +160,7 @@ def test_contains_on_non_normal_cell_is_false():
         ("length", "Greater", True),
         ("integer", "Equal", False),
         ("boolean", "Equal", 1),
+        ("boolean", "Equal", 1.0),
         ("string", "Equal", 3),
         ("string", "Contains", 3),
         ("stringList", "Contains", 3),
