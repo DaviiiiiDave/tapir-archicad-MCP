@@ -4,7 +4,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).parent.parent
-ORGANIZED_COMMANDS_URL = "https://raw.githubusercontent.com/SzamosiMate/multiconn_archicad/refs/heads/main/code_generation/unified/temp_files/01_organized_commands.json"
+# The generated wrappers import multiconn's models, so the schemas come from the multiconn version the package
+# pins in pyproject.toml. Bump both together.
+MULTICONN_REF = "v0.9.4"
+MULTICONN_RAW_URL = f"https://raw.githubusercontent.com/SzamosiMate/multiconn_archicad/{MULTICONN_REF}"
+ORGANIZED_COMMANDS_URL = f"{MULTICONN_RAW_URL}/code_generation/unified/temp_files/01_organized_commands.json"
 
 @dataclass
 class ApiSourceConfig:
@@ -31,7 +35,7 @@ class ApiSourceConfig:
 TAPIR_CONFIG = ApiSourceConfig(
     name="tapir",
     details_url=ORGANIZED_COMMANDS_URL,
-    model_names_url="https://raw.githubusercontent.com/SzamosiMate/multiconn_archicad/main/code_generation/tapir/schema/_command_model_names.json",
+    model_names_url=f"{MULTICONN_RAW_URL}/code_generation/tapir/schema/_command_model_names.json",
     output_dir=ROOT_DIR / "src" / "tapir_archicad_mcp" / "tools" / "generated" / "tapir",
     api_call_method="post_tapir_command",
     group_mapping={
@@ -357,7 +361,7 @@ TAPIR_CONFIG = ApiSourceConfig(
 OFFICIAL_CONFIG = ApiSourceConfig(
     name="official",
     details_url=ORGANIZED_COMMANDS_URL,
-    model_names_url="https://raw.githubusercontent.com/SzamosiMate/multiconn_archicad/main/code_generation/official/schema/_command_model_names.json",
+    model_names_url=f"{MULTICONN_RAW_URL}/code_generation/official/schema/_command_model_names.json",
     output_dir=ROOT_DIR / "src" / "tapir_archicad_mcp" / "tools" / "generated" / "official",
     api_call_method="post_command",
     prefix_to_strip="API.",
