@@ -1,12 +1,17 @@
+import asyncio
 import hashlib
 import re
+import threading
 
 import pytest
+from mcp.server.mcpserver.exceptions import ToolError
 from multiconn_archicad import APIResponseError, UntitledProjectID
+from multiconn_archicad.errors import CommandTimeoutError, StandardCommandUnavailable
 
 import tapir_archicad_mcp.app
-from tapir_archicad_mcp.auto_sets import AUTO_SET_FIELDS, INLINE_THRESHOLD, UNTITLED_WARNING
-from tapir_archicad_mcp.tools.custom.functions import archicad_read_tool
+from tapir_archicad_mcp.auto_sets import AUTO_SET_FIELDS, INLINE_THRESHOLD, UNTITLED_WARNING, summarize_set
+from tapir_archicad_mcp.jobs import JobSettings
+from tapir_archicad_mcp.tools.custom.functions import archicad_get_job, archicad_read_tool
 from tapir_archicad_mcp.tools.tool_registry import TOOL_CALLABLE_REGISTRY, TOOL_DISCOVERY_CATALOG
 
 # Captured while the test module is imported, before any fixture can override the flag.
@@ -39,6 +44,17 @@ def _types(count: int) -> dict:
     }
 
 
+# Minimal valid arguments per auto-set command (None: the command takes no params).
+AUTO_SET_PARAMS = {
+    "elements_get_all_elements": {},
+    "elements_get_elements_by_type": {"elementType": "Wall"},
+    "elements_get_elements_by_classification": {"classificationItemId": {"guid": _guid(900)}},
+    "elements_get_selected_elements": None,
+    "elements_filter_elements": {"elements": _elements(5), "filters": ["IsEditable"]},
+    "issues_get_elements_attached_to_issue": {"issueId": {"guid": _guid(901)}, "type": "Creation"},
+}
+
+
 def _canned(fake_archicad, command: str, count: int) -> None:
     fake_archicad.on_tapir_command(command, {"elements": _elements(count)})
     fake_archicad.on_tapir_command("API.GetTypesOfElements", _types(count))
@@ -52,7 +68,7 @@ async def test_large_result_is_replaced_by_a_summary(fake_archicad, set_store):
 
     assert "elements" not in result
     assert "next_page_token" not in result
-    assert "envelope" not in result
+    assert result["envelope"] == {"elements": {"total": 150, "returned": 0, "truncated": True}}
     summary = result["set"]
     assert summary["count"] == 150
     assert summary["byType"] == {"Wall": 50, "Slab": 50, "Column": 50}
@@ -81,7 +97,10 @@ async def test_threshold_boundary(fake_archicad):
 
     assert at_threshold["elements"] == _elements(INLINE_THRESHOLD)
     assert at_threshold["set"]["count"] == INLINE_THRESHOLD
+    assert "envelope" not in at_threshold
     assert "elements" not in above_threshold
+    total = INLINE_THRESHOLD + 1
+    assert above_threshold["envelope"] == {"elements": {"total": total, "returned": 0, "truncated": True}}
     assert above_threshold["set"]["count"] == INLINE_THRESHOLD + 1
 
 
@@ -134,17 +153,22 @@ async def test_summary_next_templates_name_the_set_and_port(fake_archicad):
 
     summary = (await archicad_read_tool("elements_get_all_elements", {"port": PORT, "params": {}}))["set"]
 
-    assert summary["next"] == {
-        "rows": (
-            f"archicad_read_tool(name='sets_rows', arguments={{'port': {PORT}, "
-            f"'params': {{'set': '{summary['set']}', 'columns': [...]}}}})"
-        ),
-        "aggregate": (
-            f"archicad_read_tool(name='sets_aggregate', arguments={{'port': {PORT}, "
-            f"'params': {{'set': '{summary['set']}', 'groupBy': ...}}}})"
-        ),
-    }
-    assert re.fullmatch(r"set:[0-9a-f]{8}", summary["set"])
+    set_id = summary["set"]
+    assert re.fullmatch(r"set:[0-9a-f]{8}", set_id)
+    assert summary["next"] == [
+        f"archicad_read_tool(name='elements_change_selection_of_elements', arguments={{'port': {PORT}, "
+        f"'params': {{'addElementsToSelection': {{'set': '{set_id}'}}}}}})",
+        f"archicad_read_tool(name='navigator_fit_in_window', arguments={{'port': {PORT}, "
+        f"'params': {{'elements': {{'set': '{set_id}'}}}}}})",
+        f"archicad_read_tool(name='elements_filter_elements', arguments={{'port': {PORT}, "
+        f"'params': {{'elements': {{'set': '{set_id}'}}, 'filters': [<filter such as 'IsEditable'>]}}}})",
+    ]
+    for template in summary["next"]:
+        command = re.search(r"name='([a-z0-9_]+)'", template).group(1)
+        assert command in TOOL_CALLABLE_REGISTRY, f"{command} is not a registered command"
+        assert TOOL_CALLABLE_REGISTRY[command].kind == "read", f"{command} is not kind='read'"
+        assert f"'set': '{set_id}'" in template
+        assert f"'port': {PORT}" in template
 
 
 @pytest.mark.asyncio
@@ -187,7 +211,10 @@ async def test_unknown_project_creates_no_set_and_keeps_the_paged_result(fake_ar
     assert len(result["elements"]) == 100
     assert "next_page_token" in result
     assert "set" not in result
-    assert result["setError"] == "no answer; no set was created"
+    assert result["setError"] == (
+        "Could not read the project identity (no answer), so no set was created. "
+        "The full element list is returned instead (paginated); retry once Archicad responds if you need a set."
+    )
     assert len(set_store) == 0
 
 
@@ -210,6 +237,44 @@ async def test_failing_types_call_fails_the_read_and_leaves_no_set(fake_archicad
     with pytest.raises(Exception, match="GetTypesOfElements"):
         await archicad_read_tool("elements_get_all_elements", {"port": PORT, "params": {}})
 
+    assert len(set_store) == 0
+
+
+TYPES_FAILED = (
+    "The elements were read, but counting their types for the set summary failed ({reason}); no set was created. "
+    "This needs Archicad 26 or later; start the server with --element-sets off to get the raw list."
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error",
+    [StandardCommandUnavailable("Unknown command API.GetTypesOfElements"), CommandTimeoutError("timed out")],
+)
+async def test_archicad_error_in_the_type_count_is_explained(fake_archicad, set_store, error):
+    fake_archicad.on_tapir_command("GetAllElements", {"elements": _elements(30)})
+
+    def failing(command, parameters=None):
+        raise error
+
+    fake_archicad.core.post_command = failing
+
+    with pytest.raises(ToolError) as raised:
+        await archicad_read_tool("elements_get_all_elements", {"port": PORT, "params": {}})
+
+    assert str(raised.value) == TYPES_FAILED.format(reason=error.message)
+    assert len(set_store) == 0
+
+
+@pytest.mark.asyncio
+async def test_type_count_with_a_different_number_of_entries_is_refused(fake_archicad, set_store):
+    fake_archicad.on_tapir_command("GetAllElements", {"elements": _elements(30)})
+    fake_archicad.on_tapir_command("API.GetTypesOfElements", _types(29))
+
+    with pytest.raises(ToolError) as raised:
+        await archicad_read_tool("elements_get_all_elements", {"port": PORT, "params": {}})
+
+    assert str(raised.value) == TYPES_FAILED.format(reason="Archicad returned 29 type entries for 30 elements")
     assert len(set_store) == 0
 
 
@@ -237,3 +302,73 @@ async def test_duplicates_above_the_threshold_are_counted_once(fake_archicad):
     assert result["set"]["count"] == INLINE_THRESHOLD + 1
     types_calls = [parameters for command, parameters in fake_archicad.calls if command == "API.GetTypesOfElements"]
     assert len(types_calls[0]["elements"]) == INLINE_THRESHOLD + 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", AUTO_SET_FIELDS)
+async def test_every_auto_set_command_summarises_a_large_result(fake_archicad, set_store, name):
+    assert AUTO_SET_PARAMS.keys() == AUTO_SET_FIELDS.keys()
+    title = TOOL_DISCOVERY_CATALOG[name]["title"]
+    for command in (title, f"API.{title}"):  # official commands are posted as API.<title>
+        fake_archicad.on_tapir_command(command, {"elements": _elements(30)})
+    fake_archicad.on_tapir_command("API.GetTypesOfElements", _types(30))
+    params = AUTO_SET_PARAMS[name]
+    arguments = {"port": PORT} if params is None else {"port": PORT, "params": params}
+
+    result = await archicad_read_tool(name, arguments)
+
+    assert "elements" not in result
+    assert result["set"]["count"] == 30
+    assert result["envelope"] == {"elements": {"total": 30, "returned": 0, "truncated": True}}
+    assert set_store.get(result["set"]["set"], PORT, PROJECT).origin["command"] == name
+
+
+@pytest.mark.asyncio
+async def test_slow_read_still_returns_the_summary_through_the_job(fake_archicad, job_store):
+    job_store.settings = JobSettings(async_threshold_seconds=0.01)
+    _canned(fake_archicad, "GetAllElements", 150)
+    release = threading.Event()
+    original = fake_archicad.core.post_tapir_command
+
+    def slow(command, parameters=None):
+        if command == "GetAllElements":
+            release.wait(5)
+        return original(command, parameters)
+
+    fake_archicad.core.post_tapir_command = slow
+
+    started = await archicad_read_tool("elements_get_all_elements", {"port": PORT, "params": {}})
+    assert started["status"] == "running"
+    release.set()
+    async with asyncio.timeout(5):
+        response = await archicad_get_job(started["jobHandle"])
+        while response["status"] == "running":
+            response = await archicad_get_job(started["jobHandle"])
+
+    result = response["result"]
+    assert "elements" not in result
+    assert result["set"]["count"] == 150
+    assert result["envelope"] == {"elements": {"total": 150, "returned": 0, "truncated": True}}
+
+
+def test_summarize_set_returns_count_types_and_call_templates(fake_archicad, set_store):
+    fake_archicad.on_tapir_command("API.GetTypesOfElements", _types(4))
+    element_set = set_store.create(PORT, PROJECT, [_guid(i) for i in range(4)], {"command": "test"})
+
+    summary = summarize_set(fake_archicad, element_set, PORT, warnings=["careful"])
+
+    assert summary == {
+        "set": element_set.id,
+        "count": 4,
+        "byType": {"Wall": 2, "Slab": 1, "Column": 1},
+        "createdAt": element_set.created_at.isoformat(),
+        "warnings": ["careful"],
+        "next": [
+            f"archicad_read_tool(name='elements_change_selection_of_elements', arguments={{'port': {PORT}, "
+            f"'params': {{'addElementsToSelection': {{'set': '{element_set.id}'}}}}}})",
+            f"archicad_read_tool(name='navigator_fit_in_window', arguments={{'port': {PORT}, "
+            f"'params': {{'elements': {{'set': '{element_set.id}'}}}}}})",
+            f"archicad_read_tool(name='elements_filter_elements', arguments={{'port': {PORT}, "
+            f"'params': {{'elements': {{'set': '{element_set.id}'}}, 'filters': [<filter such as 'IsEditable'>]}}}})",
+        ],
+    }
