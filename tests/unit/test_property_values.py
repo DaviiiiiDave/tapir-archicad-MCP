@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 from multiconn_archicad.errors import CommandTimeoutError, StandardCommandUnavailable
@@ -580,3 +583,49 @@ def test_malformed_tapir_entries_are_errors(fake_archicad):
 
     with pytest.raises(ToolError, match="Tapir.*neither a value nor an error"):
         read_property_values(fake_archicad, [TEXT], [HEIGHT])
+
+
+def test_live_archicad_29_answers_replay_into_the_expected_table(fake_archicad):
+    # Recorded on Archicad 29 build 5101 GER: a wall, a text element the official API rejects, and an unknown guid.
+    # The definitions are cut down to the fields the read uses.
+    live = json.loads((Path(__file__).parent.parent / "fixtures" / "live_property_values_ac29.json").read_text("utf-8"))
+    wall, text, unknown = live["elements"]
+    definitions = [entry["propertyDefinition"] for entry in live["definitions"]["propertyDefinitions"]]
+    property_guids = [definition["propertyId"]["guid"] for definition in definitions]
+    fake_archicad.on_tapir_command(DEFINITIONS, live["definitions"])
+    fake_archicad.on_tapir_command(OFFICIAL, live["official"])
+    fake_archicad.on_tapir_command(TAPIR, live["tapir"])
+
+    table = read_property_values(fake_archicad, [wall, text, unknown], property_guids)
+
+    assert table.unreadable == (unknown,)
+    assert list(table.cells) == [wall, text]
+    assert list(table.cells[wall].values()) == [
+        Cell("normal", 3, "length"),
+        Cell("normal", 0.545, "length"),
+        Cell("normal", 1.635, "volume"),
+        Cell("normal", 0, "volume"),
+        Cell("normal", "gerade", "singleEnum"),
+        Cell("normal", "Uni", "singleEnum"),
+        Cell("normal", 0, "area"),
+        Cell("normal", 0, "area"),
+        Cell("normal", 1.570796327, "angle"),
+        Cell("normal", 1.570796327, "angle"),
+        Cell("normal", "Ursprung + 1 (OG)", "string"),
+        Cell("normal", "Wand-006", "string"),
+        Cell("normal", True, "boolean"),
+        Cell("notEvaluated", None, "boolean"),
+        Cell("normal", [], "stringList"),
+        Cell("normal", 0, "integer"),
+        Cell("normal", 0, "integer"),
+        Cell("userUndefined", None, "number"),
+        Cell("userUndefined", None, "number"),
+        Cell("userUndefined", None, "multiEnum"),
+    ]
+    assert list(table.cells[wall]) == property_guids
+    # Tapir answers the text element with its "not available" error, except the empty list, which is an empty string.
+    expected_text = [Cell("notAvailable", None, definition["type"], typed=False) for definition in definitions]
+    expected_text[14] = Cell("normal", "", "stringList", typed=False)
+    assert list(table.cells[text].values()) == expected_text
+    assert [call[0] for call in fake_archicad.calls] == [DEFINITIONS, OFFICIAL, TAPIR]
+    assert [element["elementId"]["guid"] for element in fake_archicad.calls[2][1]["elements"]] == [text, unknown]
