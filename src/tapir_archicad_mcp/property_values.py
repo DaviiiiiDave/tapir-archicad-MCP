@@ -32,33 +32,39 @@ class ValueTable:
 
 
 def read_property_values(conn_header: ConnHeader, guids: Sequence[str], property_guids: Sequence[str]) -> ValueTable:
-    """Official read first; elements with any error in it are read again, with all properties, through Tapir.
+    """Official read first; Tapir fills the cells it could not read, as untyped strings.
+
+    A property-level official error replaces only that cell, an element-level one all cells of the element. Elements
+    that need it are read in one Tapir call; if Tapir fails for such an element, its missing cells are notAvailable
+    and only an element without any cell is unreadable.
 
     Blocking: call it in a thread.
     """
     if not guids:
         return ValueTable({}, ())
-    cells: dict[str, dict[str, Cell]] = {}
-    failed: list[str] = []
+    count = len(property_guids)
+    rows: dict[str, list[Cell | None]] = {}  # None: still to read through Tapir
     for guid, entry in zip(guids, _read(conn_header, True, guids, property_guids)):
-        values = entry.get("propertyValues")  # absent when the whole element failed
-        if values is None or any("error" in value for value in values):
-            failed.append(guid)
+        if "error" in entry:
+            rows[guid] = [None] * count
         else:
-            cells[guid] = {
-                property_guid: _official_cell(value["propertyValue"])
-                for property_guid, value in zip(property_guids, values)
-            }
+            rows[guid] = [
+                None if "error" in value else _official_cell(value) for value in _values(entry, count, "official API")
+            ]
+    failed = [guid for guid, row in rows.items() if None in row]
     unreadable = []
     if failed:
         for guid, entry in zip(failed, _read(conn_header, False, failed, property_guids)):
-            if "error" in entry:
+            if "error" not in entry:
+                fallback = [_tapir_cell(value) for value in _values(entry, count, "Tapir fallback")]
+            elif all(cell is None for cell in rows[guid]):
                 unreadable.append(guid)
+                del rows[guid]
+                continue
             else:
-                cells[guid] = {
-                    property_guid: _tapir_cell(value)
-                    for property_guid, value in zip(property_guids, entry["propertyValues"])
-                }
+                fallback = [Cell("notAvailable", None, "string", typed=False)] * count
+            rows[guid] = [tapir if cell is None else cell for cell, tapir in zip(rows[guid], fallback)]
+    cells = {guid: dict(zip(property_guids, row)) for guid, row in rows.items()}
     return ValueTable(cells, tuple(unreadable))
 
 
@@ -74,17 +80,30 @@ def _read(conn_header: ConnHeader, official: bool, guids: Sequence[str], propert
         else:
             response = conn_header.core.post_tapir_command(command="GetPropertyValuesOfElements", parameters=parameters)
     except APIErrorBase as e:
-        raise ToolError(f"Reading the property values failed in the {source} ({e.message}).") from None
+        raise _read_error(source, e.message) from None
     entries = response["propertyValuesForElements"]
     if len(entries) != len(guids):
-        raise ToolError(
-            f"Reading the property values failed in the {source} (returned {len(entries)} entries for "
-            f"{len(guids)} elements)."
-        )
+        raise _read_error(source, f"returned {len(entries)} entries for {len(guids)} elements")
     return entries
 
 
+def _read_error(source: str, reason: str) -> ToolError:
+    return ToolError(f"Reading the property values failed in the {source} ({reason}).")
+
+
+def _values(entry: dict, count: int, source: str) -> list[dict]:
+    values = entry.get("propertyValues")
+    if not isinstance(values, list):
+        raise _read_error(source, "an element entry has neither values nor an error")
+    if len(values) != count:
+        raise _read_error(source, f"returned {len(values)} values for {count} properties")
+    return values
+
+
 def _official_cell(value: dict) -> Cell:
+    if "propertyValue" not in value:
+        raise _read_error("official API", "a value entry has neither a value nor an error")
+    value = value["propertyValue"]
     status, value_type = value["status"], value["type"]
     if status != "normal":
         return Cell(status, None, value_type)
@@ -97,12 +116,17 @@ def _official_cell(value: dict) -> Cell:
 
 
 def _enum_text(enum_value: dict) -> str:
-    return enum_value.get("displayValue", enum_value.get("nonLocalizedValue"))
+    for key in ("displayValue", "nonLocalizedValue"):
+        if key in enum_value:
+            return enum_value[key]
+    raise _read_error("official API", "an enum value has neither a display nor a non-localized value")
 
 
 def _tapir_cell(value: dict) -> Cell:
     if "error" in value:
         return Cell("notAvailable", None, "string", typed=False)
+    if "value" not in value.get("propertyValue", {}):
+        raise _read_error("Tapir fallback", "a value entry has neither a value nor an error")
     text = value["propertyValue"]["value"]
     if text == TAPIR_UNDEFINED:
         return Cell("userUndefined", None, "string", typed=False)
