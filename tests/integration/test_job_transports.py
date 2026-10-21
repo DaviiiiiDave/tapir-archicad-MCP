@@ -41,7 +41,8 @@ async def completed_response(session, handle):
 
 
 @pytest.fixture
-def worker(monkeypatch):
+def worker(monkeypatch, tmp_path):
+    monkeypatch.setattr("tapir_archicad_mcp.app.change_log_directory", tmp_path / "change-log")
     entered, release = Event(), Event()
     calls = []
 
@@ -52,7 +53,9 @@ def worker(monkeypatch):
             raise RuntimeError("Test worker was not released.")
         return {"dispatchCount": len(calls)}
 
-    register_tool_for_dispatch(execute, name=COMMAND, title="Test", description="Test-only blocking command")
+    register_tool_for_dispatch(
+        execute, name=COMMAND, title="Test", description="Test-only blocking command", kind="read"
+    )
     fake = SimpleNamespace(active={19723: object()}, open_port_headers={})
     monkeypatch.setattr("tapir_archicad_mcp.app.MultiConn", lambda: fake)
     monkeypatch.setattr("tapir_archicad_mcp.app.job_settings", JobSettings(async_threshold_seconds=0.5))
@@ -253,7 +256,9 @@ async def test_immediate_errors_expose_expected_messages_and_hide_unexpected_det
     def execute(conn_header):
         raise error
 
-    register_tool_for_dispatch(execute, name=COMMAND, title="Test", description="Test-only failing command")
+    register_tool_for_dispatch(
+        execute, name=COMMAND, title="Test", description="Test-only failing command", kind="read"
+    )
     async with Client(mcp) as client:
         result = await client.call_tool("archicad_call_tool", ARGUMENTS)
         assert result.is_error and expected in result.content[0].text
@@ -302,9 +307,11 @@ def execute(conn_header):
         raise RuntimeError("Test worker was not released")
     return {"dispatchCount": len(calls)}
 
-register_tool_for_dispatch(execute, name="test_job_transport_command", title="Test", description="Test")
+register_tool_for_dispatch(execute, name="test_job_transport_command", title="Test", description="Test", kind="read")
 app.MultiConn = lambda: SimpleNamespace(active={19723: object()}, open_port_headers={})
 app.job_settings = JobSettings(async_threshold_seconds=2)
+import os, pathlib
+app.change_log_directory = pathlib.Path(os.environ["TEST_CHANGE_LOG"])
 @app.mcp.tool(name="test_release_worker")
 async def release_worker() -> dict:
     release.set()
@@ -314,8 +321,10 @@ app.mcp.run(transport="stdio")
 
 
 @pytest.mark.asyncio
-async def test_cancelled_execution_and_poll_recover_over_stdio():
-    parameters = StdioServerParameters(command=sys.executable, args=["-c", STDIO_SERVER])
+async def test_cancelled_execution_and_poll_recover_over_stdio(tmp_path):
+    parameters = StdioServerParameters(
+        command=sys.executable, args=["-c", STDIO_SERVER], env={"TEST_CHANGE_LOG": str(tmp_path / "change-log")}
+    )
     async with (
         stdio_client(parameters) as streams,
         ClientSession(streams[0], streams[1]) as session,

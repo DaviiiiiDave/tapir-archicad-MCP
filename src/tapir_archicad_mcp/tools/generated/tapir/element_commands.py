@@ -48,6 +48,7 @@ register_tool_for_dispatch(
     title="ChangeSelectionOfElements",
     description="Adds/removes a number of elements to/from the current selection.",
     params_model=ChangeSelectionOfElementsParameters,
+    kind="read",
 )
 
 
@@ -70,6 +71,7 @@ register_tool_for_dispatch(
         "(for example because its layer is locked) gets a failed execution result instead of being skipped silently."
     ),
     params_model=DeleteElementsParameters,
+    kind="irreversible",
 )
 
 
@@ -86,6 +88,7 @@ register_tool_for_dispatch(
     title="FilterElements",
     description="Tests an elements by the given criterias.",
     params_model=FilterElementsParameters,
+    kind="read",
 )
 
 
@@ -108,6 +111,7 @@ register_tool_for_dispatch(
         "The output is the array of the bounding boxes respective to the input array of elements."
     ),
     params_model=Get3DBoundingBoxesParameters,
+    kind="read",
 )
 
 
@@ -132,6 +136,7 @@ register_tool_for_dispatch(
     ),
     params_model=GetAllElementsParameters,
     pagination_field="elements",
+    kind="read",
 )
 
 
@@ -148,6 +153,7 @@ register_tool_for_dispatch(
     title="GetCollisions",
     description="Detect collisions between the given two groups of elements.",
     params_model=GetCollisionsParameters,
+    kind="read",
 )
 
 
@@ -172,6 +178,7 @@ register_tool_for_dispatch(
         "risers, treads and structures of a Stair, or the posts, rails and panels of a Railing."
     ),
     params_model=GetConnectedElementsParameters,
+    kind="read",
 )
 
 
@@ -198,6 +205,7 @@ register_tool_for_dispatch(
     ),
     params_model=GetDetailsOfElementsParameters,
     pagination_field="detailsOfElements",
+    kind="read",
 )
 
 
@@ -214,6 +222,7 @@ register_tool_for_dispatch(
     title="GetDimensionData",
     description="Gets witness point data (coordinates, measured values) from existing dimension chains.",
     params_model=GetDimensionDataParameters,
+    kind="read",
 )
 
 
@@ -230,6 +239,7 @@ register_tool_for_dispatch(
     title="GetElementPreviewImage",
     description="Returns the preview image of the given element.",
     params_model=GetElementPreviewImageParameters,
+    kind="read",
 )
 
 
@@ -256,6 +266,7 @@ register_tool_for_dispatch(
     ),
     params_model=GetElementsByTypeParameters,
     pagination_field="elements",
+    kind="read",
 )
 
 
@@ -279,6 +290,7 @@ register_tool_for_dispatch(
     description="Gets all the GDL parameters (name, type, value) of the given elements.",
     params_model=GetGDLParametersOfElementsParameters,
     pagination_field="gdlParametersOfElements",
+    kind="read",
 )
 
 
@@ -304,6 +316,7 @@ register_tool_for_dispatch(
         "from the opening's own GDL parameters, which GetGDLParametersOfElements returns."
     ),
     params_model=GetMarkerParametersOfElementsParameters,
+    kind="read",
 )
 
 
@@ -329,6 +342,7 @@ register_tool_for_dispatch(
         "from Archicad 26."
     ),
     params_model=GetRelationsOfElementsParameters,
+    kind="read",
 )
 
 
@@ -345,6 +359,7 @@ register_tool_for_dispatch(
     title="GetRoomImage",
     description="Returns the room image of the given zone.",
     params_model=GetRoomImageParameters,
+    kind="read",
 )
 
 
@@ -371,6 +386,7 @@ register_tool_for_dispatch(
         "CreateAssociativeDimensionsOnSection requires."
     ),
     params_model=GetSectionElementsParameters,
+    kind="read",
 )
 
 
@@ -391,6 +407,7 @@ register_tool_for_dispatch(
     description="Gets the list of the currently selected elements.",
     params_model=None,
     pagination_field="elements",
+    kind="read",
 )
 
 
@@ -410,6 +427,7 @@ register_tool_for_dispatch(
     title="GetSubelementsOfHierarchicalElements",
     description="Gets the subelements of the given hierarchical elements.",
     params_model=GetSubelementsOfHierarchicalElementsParameters,
+    kind="read",
 )
 
 
@@ -434,6 +452,7 @@ register_tool_for_dispatch(
         "so querying many Zones in one call is much faster than calling the command once per Zone."
     ),
     params_model=GetZoneBoundariesParameters,
+    kind="read",
 )
 
 
@@ -456,6 +475,7 @@ register_tool_for_dispatch(
         "set highlights."
     ),
     params_model=HighlightElementsParameters,
+    kind="read",
 )
 
 
@@ -472,6 +492,7 @@ register_tool_for_dispatch(
     title="LockElements",
     description="Locks the given elements. Manual lock, not teamwork!",
     params_model=LockElementsParameters,
+    kind="write",
 )
 
 
@@ -488,6 +509,7 @@ register_tool_for_dispatch(
     title="MoveElements",
     description="Moves elements with a given vector.",
     params_model=MoveElementsParameters,
+    kind="write",
 )
 
 
@@ -507,6 +529,7 @@ register_tool_for_dispatch(
     title="RemoveElementNotificationClient",
     description="Removes an element notification client.",
     params_model=RemoveElementNotificationClientParameters,
+    kind="write",
 )
 
 
@@ -523,6 +546,7 @@ register_tool_for_dispatch(
     title="RotateElements",
     description="Rotates elements around a reference point.",
     params_model=RotateElementsParameters,
+    kind="write",
 )
 
 
@@ -539,6 +563,7 @@ register_tool_for_dispatch(
     title="SetDetailsOfElements",
     description="Sets the details of the given elements (floor, layer, order etc).",
     params_model=SetDetailsOfElementsParameters,
+    kind="write",
 )
 
 
@@ -556,6 +581,7 @@ register_tool_for_dispatch(
     title="SetElementNotificationClient",
     description="Sets up a new notification client to receive element events.",
     params_model=SetElementNotificationClientParameters,
+    kind="write",
 )
 
 
@@ -573,6 +599,7 @@ register_tool_for_dispatch(
     title="SetGDLParametersOfElements",
     description="Sets the given GDL parameters of the given elements.",
     params_model=SetGDLParametersOfElementsParameters,
+    kind="write",
 )
 
 
@@ -596,6 +623,7 @@ register_tool_for_dispatch(
         "and the other marker parameters are left as they are."
     ),
     params_model=SetMarkerParametersOfElementsParameters,
+    kind="write",
 )
 
 
@@ -612,6 +640,7 @@ register_tool_for_dispatch(
     title="UnlockElements",
     description="Unlocks the given elements. Manual lock, not teamwork!",
     params_model=UnlockElementsParameters,
+    kind="write",
 )
 
 
@@ -630,4 +659,5 @@ register_tool_for_dispatch(
         "Updates all Zones (recalculates their geometry, updates their Zone Stamps and the connected elements)."
     ),
     params_model=UpdateZonesParameters,
+    kind="write",
 )

@@ -53,8 +53,8 @@ def test_check_init_rejects_servers_when_none_are_expected():
         ("NONE", True),
         ("# currentDate", True),
         ("  # currentDate\n", True),
-        ("# currentDate\n# Persona — Mein Claude", False),
-        ("C:\\Users\\davet\\.claude\\CLAUDE.md", False),
+        ("# currentDate\n# Persona — My Assistant", False),
+        ("C:\\Users\\someone\\.claude\\CLAUDE.md", False),
         ("", False),
     ],
 )

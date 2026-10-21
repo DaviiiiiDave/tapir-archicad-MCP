@@ -28,6 +28,7 @@ register_tool_for_dispatch(
     description="Returns the identifier of every element with the given classification identifier.",
     params_model=GetElementsByClassificationParameters,
     pagination_field="elements",
+    kind="read",
 )
 
 
@@ -44,4 +45,5 @@ register_tool_for_dispatch(
     title="GetTypesOfElements",
     description="Returns the types of the given elements.",
     params_model=GetTypesOfElementsParameters,
+    kind="read",
 )

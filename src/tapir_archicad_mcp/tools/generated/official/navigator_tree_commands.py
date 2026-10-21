@@ -30,6 +30,7 @@ register_tool_for_dispatch(
     title="DeleteNavigatorItems",
     description="Deletes items from navigator tree.",
     params_model=DeleteNavigatorItemsParameters,
+    kind="irreversible",
 )
 
 
@@ -49,6 +50,7 @@ register_tool_for_dispatch(
     title="GetBuiltInContainerNavigatorItems",
     description="Returns the details of the built-in container navigator items identified by their Ids.",
     params_model=GetBuiltInContainerNavigatorItemsParameters,
+    kind="read",
 )
 
 
@@ -66,6 +68,7 @@ register_tool_for_dispatch(
     title="GetDetailNavigatorItems",
     description="Returns the details of the detail navigator items identified by their Ids.",
     params_model=GetDetailNavigatorItemsParameters,
+    kind="read",
 )
 
 
@@ -83,6 +86,7 @@ register_tool_for_dispatch(
     title="GetDocument3DNavigatorItems",
     description="Returns the details of the 3D document navigator items identified by their Ids.",
     params_model=GetDocument3DNavigatorItemsParameters,
+    kind="read",
 )
 
 
@@ -100,6 +104,7 @@ register_tool_for_dispatch(
     title="GetElevationNavigatorItems",
     description="Returns the detailed elevation navigator items identified by their Ids.",
     params_model=GetElevationNavigatorItemsParameters,
+    kind="read",
 )
 
 
@@ -119,6 +124,7 @@ register_tool_for_dispatch(
     title="GetInteriorElevationNavigatorItems",
     description="Returns the details of the interior elevation navigator items identified by their Ids.",
     params_model=GetInteriorElevationNavigatorItemsParameters,
+    kind="read",
 )
 
 
@@ -141,6 +147,7 @@ register_tool_for_dispatch(
         "identifier that is not found."
     ),
     params_model=GetNavigatorItemsTypeParameters,
+    kind="read",
 )
 
 
@@ -155,6 +162,7 @@ register_tool_for_dispatch(
     title="GetPublisherSetNames",
     description="Returns the names of available publisher sets.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -172,6 +180,7 @@ register_tool_for_dispatch(
     title="GetSectionNavigatorItems",
     description="Returns the details of the section navigator items identified by their Ids.",
     params_model=GetSectionNavigatorItemsParameters,
+    kind="read",
 )
 
 
@@ -189,6 +198,7 @@ register_tool_for_dispatch(
     title="GetStoryNavigatorItems",
     description="Returns the details of the story navigator items identified by their Ids.",
     params_model=GetStoryNavigatorItemsParameters,
+    kind="read",
 )
 
 
@@ -206,6 +216,7 @@ register_tool_for_dispatch(
     title="GetWorksheetNavigatorItems",
     description="Returns the details of the worksheet navigator items identified by their Ids.",
     params_model=GetWorksheetNavigatorItemsParameters,
+    kind="read",
 )
 
 
@@ -230,4 +241,5 @@ register_tool_for_dispatch(
         "given then inserts it after this navigator item."
     ),
     params_model=MoveNavigatorItemParameters,
+    kind="write",
 )

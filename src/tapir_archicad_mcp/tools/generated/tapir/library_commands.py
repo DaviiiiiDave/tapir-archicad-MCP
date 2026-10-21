@@ -30,6 +30,7 @@ register_tool_for_dispatch(
         "already existing on an outputPath is replaced (Archicad 27 or newer)."
     ),
     params_model=AddFilesToEmbeddedLibraryParameters,
+    kind="irreversible",
 )
 
 
@@ -46,6 +47,7 @@ register_tool_for_dispatch(
     title="AddLibraries",
     description="Adds the given folders to the project's local libraries, skipping any already loaded.",
     params_model=AddLibrariesParameters,
+    kind="irreversible",
 )
 
 
@@ -69,6 +71,7 @@ register_tool_for_dispatch(
         "AddFilesToEmbeddedLibrary takes as outputPath. Available from Archicad 27."
     ),
     params_model=DeleteEmbeddedLibraryItemsParameters,
+    kind="irreversible",
 )
 
 
@@ -94,6 +97,7 @@ register_tool_for_dispatch(
     ),
     params_model=GetAvailableLibraryPartsParameters,
     pagination_field="libraryParts",
+    kind="read",
 )
 
 
@@ -108,6 +112,7 @@ register_tool_for_dispatch(
     title="GetLibraries",
     description="Gets the list of loaded libraries.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -122,6 +127,7 @@ register_tool_for_dispatch(
     title="ReloadLibraries",
     description="Executes the reload libraries command.",
     params_model=None,
+    kind="irreversible",
 )
 
 
@@ -144,4 +150,5 @@ register_tool_for_dispatch(
         "Set the libraries before opening a file that needs them and the missing-library dialog does not appear."
     ),
     params_model=SetLibrariesParameters,
+    kind="irreversible",
 )

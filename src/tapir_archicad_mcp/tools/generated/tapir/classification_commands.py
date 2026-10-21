@@ -28,6 +28,7 @@ register_tool_for_dispatch(
     title="CreateClassificationItems",
     description="Creates Classification Items in the given Classification Systems based on the given parameters.",
     params_model=CreateClassificationItemsParameters,
+    kind="write",
 )
 
 
@@ -45,6 +46,7 @@ register_tool_for_dispatch(
     title="CreateClassificationSystems",
     description="Creates Classification Systems including Classification Items based on the given parameters.",
     params_model=CreateClassificationSystemsParameters,
+    kind="write",
 )
 
 
@@ -61,6 +63,7 @@ register_tool_for_dispatch(
     title="DeleteClassificationItems",
     description="Deletes the given Classification Items.",
     params_model=DeleteClassificationItemsParameters,
+    kind="irreversible",
 )
 
 
@@ -78,6 +81,7 @@ register_tool_for_dispatch(
     title="DeleteClassificationSystems",
     description="Deletes the given Classification Systems.",
     params_model=DeleteClassificationSystemsParameters,
+    kind="irreversible",
 )
 
 
@@ -101,6 +105,7 @@ register_tool_for_dispatch(
         "subelements of hierarchal elements also."
     ),
     params_model=GetClassificationsOfElementsParameters,
+    kind="read",
 )
 
 
@@ -123,6 +128,7 @@ register_tool_for_dispatch(
         "exist. Returns the systems and items it created and removed."
     ),
     params_model=ImportClassificationsXmlParameters,
+    kind="irreversible",
 )
 
 
@@ -146,6 +152,7 @@ register_tool_for_dispatch(
         "the classificationItemId field. It works for subelements of hierarchal elements also."
     ),
     params_model=SetClassificationsOfElementsParameters,
+    kind="write",
 )
 
 
@@ -168,6 +175,7 @@ register_tool_for_dispatch(
         "the elements classified with them. Items cannot be moved to another parent."
     ),
     params_model=UpdateClassificationItemsParameters,
+    kind="write",
 )
 
 
@@ -190,4 +198,5 @@ register_tool_for_dispatch(
         "guid."
     ),
     params_model=UpdateClassificationSystemsParameters,
+    kind="write",
 )

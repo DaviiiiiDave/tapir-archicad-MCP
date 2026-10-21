@@ -32,6 +32,7 @@ register_tool_for_dispatch(
     title="ModifyBeams",
     description="Modifies Beam elements based on the given parameters.",
     params_model=ModifyBeamsParameters,
+    kind="write",
 )
 
 
@@ -48,6 +49,7 @@ register_tool_for_dispatch(
     title="ModifyColumns",
     description="Modifies Column elements based on the given parameters.",
     params_model=ModifyColumnsParameters,
+    kind="write",
 )
 
 
@@ -64,6 +66,7 @@ register_tool_for_dispatch(
     title="ModifyDoors",
     description="Modifies Door elements based on the given parameters.",
     params_model=ModifyDoorsParameters,
+    kind="write",
 )
 
 
@@ -80,6 +83,7 @@ register_tool_for_dispatch(
     title="ModifyLabels",
     description="Modifies Label elements based on the given parameters.",
     params_model=ModifyLabelsParameters,
+    kind="write",
 )
 
 
@@ -96,6 +100,7 @@ register_tool_for_dispatch(
     title="ModifyLamps",
     description="Modifies Lamp elements based on the given parameters.",
     params_model=ModifyLampsParameters,
+    kind="write",
 )
 
 
@@ -112,6 +117,7 @@ register_tool_for_dispatch(
     title="ModifyMeshes",
     description="Modifies the attributes of Mesh elements based on the given parameters.",
     params_model=ModifyMeshesParameters,
+    kind="write",
 )
 
 
@@ -128,6 +134,7 @@ register_tool_for_dispatch(
     title="ModifyMorphs",
     description="Modifies Morph elements based on the given parameters.",
     params_model=ModifyMorphsParameters,
+    kind="write",
 )
 
 
@@ -144,6 +151,7 @@ register_tool_for_dispatch(
     title="ModifyObjects",
     description="Modifies Object elements based on the given parameters.",
     params_model=ModifyObjectsParameters,
+    kind="write",
 )
 
 
@@ -160,6 +168,7 @@ register_tool_for_dispatch(
     title="ModifyRoofs",
     description="Modifies multi-plane Roof elements based on the given parameters.",
     params_model=ModifyRoofsParameters,
+    kind="write",
 )
 
 
@@ -176,6 +185,7 @@ register_tool_for_dispatch(
     title="ModifySlabs",
     description="Modifies Slab elements based on the given parameters.",
     params_model=ModifySlabsParameters,
+    kind="write",
 )
 
 
@@ -192,6 +202,7 @@ register_tool_for_dispatch(
     title="ModifyTexts",
     description="Modifies standalone Text elements based on the given parameters.",
     params_model=ModifyTextsParameters,
+    kind="write",
 )
 
 
@@ -208,6 +219,7 @@ register_tool_for_dispatch(
     title="ModifyWalls",
     description="Modifies Wall elements based on the given parameters.",
     params_model=ModifyWallsParameters,
+    kind="write",
 )
 
 
@@ -224,4 +236,5 @@ register_tool_for_dispatch(
     title="ModifyWindows",
     description="Modifies Window elements based on the given parameters.",
     params_model=ModifyWindowsParameters,
+    kind="write",
 )

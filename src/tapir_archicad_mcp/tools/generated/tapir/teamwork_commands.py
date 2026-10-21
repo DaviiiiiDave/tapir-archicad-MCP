@@ -27,6 +27,7 @@ register_tool_for_dispatch(
         "Returns the Teamwork reservation status of a non-element lockable object set and the users who hold it."
     ),
     params_model=GetLockableObjectSetStatusParameters,
+    kind="read",
 )
 
 
@@ -43,6 +44,7 @@ register_tool_for_dispatch(
     title="ReleaseElements",
     description="Releases elements in Teamwork mode.",
     params_model=ReleaseElementsParameters,
+    kind="irreversible",
 )
 
 
@@ -57,6 +59,7 @@ register_tool_for_dispatch(
     title="ReleaseHotlinkCacheManagement",
     description="Releases the Hotlink and XRef management in Teamwork mode.",
     params_model=None,
+    kind="irreversible",
 )
 
 
@@ -73,6 +76,7 @@ register_tool_for_dispatch(
     title="ReleaseLockableObjectSet",
     description=("Releases a non-element lockable object set reserved with ReserveLockableObjectSet in Teamwork mode."),
     params_model=ReleaseLockableObjectSetParameters,
+    kind="irreversible",
 )
 
 
@@ -89,6 +93,7 @@ register_tool_for_dispatch(
     title="ReserveElements",
     description="Reserves elements in Teamwork mode.",
     params_model=ReserveElementsParameters,
+    kind="irreversible",
 )
 
 
@@ -105,6 +110,7 @@ register_tool_for_dispatch(
         "Reserves the Hotlink and XRef management in Teamwork mode, which is needed before changing hotlink nodes."
     ),
     params_model=None,
+    kind="irreversible",
 )
 
 
@@ -129,6 +135,7 @@ register_tool_for_dispatch(
         "or 'ProjectInfo'."
     ),
     params_model=ReserveLockableObjectSetParameters,
+    kind="irreversible",
 )
 
 
@@ -143,6 +150,7 @@ register_tool_for_dispatch(
     title="TeamworkReceive",
     description="Performs a receive operation on the currently opened Teamwork project.",
     params_model=None,
+    kind="irreversible",
 )
 
 
@@ -157,4 +165,5 @@ register_tool_for_dispatch(
     title="TeamworkSend",
     description="Performs a send operation on the currently opened Teamwork project.",
     params_model=None,
+    kind="irreversible",
 )

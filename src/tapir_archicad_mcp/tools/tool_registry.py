@@ -1,16 +1,17 @@
 import logging
 from collections.abc import Callable
 from types import UnionType
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from mcp.server.mcpserver.exceptions import ToolError
 from multiconn_archicad.constants import DEFAULT_PORT_RANGE
-from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, create_model
 
 log = logging.getLogger(__name__)
 
 
 ModelOrUnion = Optional[type | UnionType | type(Union)]
+CommandKind = Literal["read", "write", "irreversible"]
 
 
 class ToolRegistryEntry(BaseModel):
@@ -22,6 +23,7 @@ class ToolRegistryEntry(BaseModel):
     params_model: ModelOrUnion = None
     arguments_model: type[BaseModel]
     pagination_field: str | None = None
+    kind: CommandKind
 
 
 TOOL_CALLABLE_REGISTRY: dict[str, ToolRegistryEntry] = {}
@@ -29,7 +31,9 @@ TOOL_DISCOVERY_CATALOG: dict[str, dict[str, Any]] = {}
 _TOOL_INPUT_SCHEMA_CACHE: dict[str, dict[str, Any]] = {}
 
 
-def _build_tool_arguments_model(name: str, params_model: ModelOrUnion, pagination_field: str | None) -> type[BaseModel]:
+def _build_tool_arguments_model(
+    name: str, params_model: ModelOrUnion, pagination_field: str | None, kind: CommandKind
+) -> type[BaseModel]:
     """Build the runtime and discovery model for one command's arguments envelope."""
     fields: dict[str, tuple[Any, Any]] = {
         "port": (
@@ -52,6 +56,18 @@ def _build_tool_arguments_model(name: str, params_model: ModelOrUnion, paginatio
             Field(default=None, description="Token for the next page of results (for paginated responses)."),
         )
 
+    if kind == "irreversible":
+        fields["confirm"] = (
+            StrictBool,
+            Field(
+                default=False,
+                description=(
+                    "Must be the JSON boolean true. This command cannot be undone in Archicad or affects other "
+                    "users, so ask the user before setting it."
+                ),
+            ),
+        )
+
     return create_model(
         f"{name.title().replace('_', '')}Arguments",
         __config__=ConfigDict(extra="forbid"),
@@ -66,6 +82,8 @@ def register_tool_for_dispatch(
     description: str,
     params_model: ModelOrUnion = None,
     pagination_field: str | None = None,
+    *,
+    kind: CommandKind,
 ):
     """
     Orchestrates the registration of a tool, populating both the internal
@@ -74,18 +92,20 @@ def register_tool_for_dispatch(
     if name in TOOL_CALLABLE_REGISTRY:
         log.warning(f"Tool {name} already registered. Overwriting.")
 
-    arguments_model = _build_tool_arguments_model(name, params_model, pagination_field)
+    arguments_model = _build_tool_arguments_model(name, params_model, pagination_field, kind)
     TOOL_CALLABLE_REGISTRY[name] = ToolRegistryEntry(
         callable=func,
         params_model=params_model,
         arguments_model=arguments_model,
         pagination_field=pagination_field,
+        kind=kind,
     )
 
     TOOL_DISCOVERY_CATALOG[name] = {
         "name": name,
         "title": title,
         "description": description,
+        "kind": kind,
     }
     log.debug(f"Registered tool: {name}")
 

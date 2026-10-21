@@ -25,6 +25,7 @@ register_tool_for_dispatch(
     title="CreateSolidElementLinks",
     description="Creates solid element operation links between target and operator elements.",
     params_model=CreateSolidElementLinksParameters,
+    kind="write",
 )
 
 
@@ -41,6 +42,7 @@ register_tool_for_dispatch(
     title="GetElementTrims",
     description=("Which roofs and shells trim each queried element, with the trim type, and which elements it trims."),
     params_model=GetElementTrimsParameters,
+    kind="read",
 )
 
 
@@ -59,6 +61,7 @@ register_tool_for_dispatch(
         "Returns solid element operation links for each queried element, grouped by role (target or operator)."
     ),
     params_model=GetSolidElementLinksParameters,
+    kind="read",
 )
 
 
@@ -75,6 +78,7 @@ register_tool_for_dispatch(
     title="RemoveElementTrims",
     description="Removes the trim between an element and the roof or shell trimming it.",
     params_model=RemoveElementTrimsParameters,
+    kind="write",
 )
 
 
@@ -91,6 +95,7 @@ register_tool_for_dispatch(
     title="RemoveSolidElementLinks",
     description="Removes solid element operation links between target and operator elements.",
     params_model=RemoveSolidElementLinksParameters,
+    kind="write",
 )
 
 
@@ -113,4 +118,5 @@ register_tool_for_dispatch(
         "element with a trim type."
     ),
     params_model=TrimElementsParameters,
+    kind="write",
 )

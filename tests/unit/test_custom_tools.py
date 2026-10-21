@@ -25,6 +25,7 @@ from tapir_archicad_mcp.tools.custom.functions import (
     archicad_call_tool,
     archicad_get_command_schema,
     archicad_list_commands,
+    archicad_read_tool,
     list_active_archicads,
 )
 from tapir_archicad_mcp.tools.custom.models import (
@@ -32,7 +33,11 @@ from tapir_archicad_mcp.tools.custom.models import (
     CommandSchema,
     DiscoveryResult,
 )
-from tapir_archicad_mcp.tools.tool_registry import get_tool_entry, register_tool_for_dispatch
+from tapir_archicad_mcp.tools.tool_registry import (
+    TOOL_DISCOVERY_CATALOG,
+    get_tool_entry,
+    register_tool_for_dispatch,
+)
 
 # ============================================================================
 # Helpers & Fixtures
@@ -92,6 +97,34 @@ def test_archicad_list_commands(fake_archicad):
     all_names = [cmd.name for cmd in commands]
     assert "elements_get_selected_elements" in all_names
     assert "elements_create_slabs" in all_names
+
+
+def test_list_without_arguments_is_unchanged(fake_archicad):
+    assert len(archicad_list_commands()) == len(TOOL_DISCOVERY_CATALOG)
+
+
+def test_query_matches_all_tokens(fake_archicad):
+    names = [command.name for command in archicad_list_commands(query="property value")]
+
+    assert "properties_get_property_values_of_elements" in names
+    for command in archicad_list_commands(query="property value"):
+        text = f"{command.name} {command.description}".lower()
+        assert "property" in text and "value" in text
+
+
+def test_group_filter(fake_archicad):
+    names = [command.name for command in archicad_list_commands(group="issues")]
+
+    assert names
+    assert all(name.startswith("issues_") for name in names)
+
+
+def test_no_match_returns_empty_list(fake_archicad):
+    assert archicad_list_commands(query="zzzz-no-such-command") == []
+
+
+def test_blank_query_lists_everything(fake_archicad):
+    assert len(archicad_list_commands(query="  ")) == len(TOOL_DISCOVERY_CATALOG)
 
 
 def test_archicad_get_command_schema_valid(fake_archicad):
@@ -154,8 +187,10 @@ def test_reregistered_command_keeps_discovery_and_runtime_models_in_sync():
         pass
 
     name = "test_reregistered_command"
-    register_tool_for_dispatch(without_params, name=name, title="Before", description="Before")
-    register_tool_for_dispatch(with_params, name=name, title="After", description="After", params_model=Params)
+    register_tool_for_dispatch(without_params, name=name, title="Before", description="Before", kind="write")
+    register_tool_for_dispatch(
+        with_params, name=name, title="After", description="After", params_model=Params, kind="write"
+    )
 
     runtime_schema = get_tool_entry(name).arguments_model.model_json_schema()
     discovery_schema = archicad_get_command_schema(name).input_schema
@@ -184,12 +219,13 @@ async def test_union_parameter_models_validate_and_dispatch(fake_archicad):
         title="Union",
         description="Union parameters",
         params_model=FirstParams | SecondParams,
+        kind="write",
     )
 
     result = await archicad_call_tool(name, {"port": 19723, "params": {"second": "value"}})
     schema = archicad_get_command_schema(name).input_schema
 
-    assert result == {}
+    assert set(result) == {"changeLog"}
     assert isinstance(received[0], SecondParams)
     assert schema == get_tool_entry(name).arguments_model.model_json_schema()
     assert len(schema["properties"]["params"]["anyOf"]) == 2
@@ -292,8 +328,85 @@ def test_broken_instance_does_not_block_healthy_one(set_multi_conn):
 @pytest.mark.asyncio
 async def test_call_tool_intercepts_addon_unavailable(set_multi_conn):
     mock_func = Mock(side_effect=AddOnCommandUnavailable("Unknown Add-On command."))
-    register_tool_for_dispatch(mock_func, name="test_cmd", title="T", description="D")
+    register_tool_for_dispatch(mock_func, name="test_cmd", title="T", description="D", kind="write")
     set_multi_conn({19723: make_header()})
 
     with pytest.raises(ToolError, match="not available in the installed Tapir Add-On"):
         await archicad_call_tool("test_cmd", {"port": 19723})
+
+
+# ============================================================================
+# 3. Read-only tool and irreversible commands
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_read_tool_runs_read_commands(fake_archicad):
+    fake_archicad.on_tapir_command("GetAddOnVersion", {"version": "1.7.1"})
+
+    result = await archicad_read_tool("app_get_add_on_version", {"port": 19723})
+
+    assert result == {"version": "1.7.1"}
+
+
+@pytest.mark.asyncio
+async def test_read_tool_rejects_write_commands(fake_archicad):
+    with pytest.raises(ToolError, match="archicad_call_tool"):
+        await archicad_read_tool("elements_create_walls", {"port": 19723})
+
+    assert fake_archicad.calls == []
+
+
+@pytest.mark.asyncio
+async def test_irreversible_requires_confirm(fake_archicad):
+    fake_archicad.on_tapir_command("SaveProject", {})
+
+    with pytest.raises(ToolError, match='"confirm": true'):
+        await archicad_call_tool("project_save_project", {"port": 19723})
+    assert fake_archicad.calls == []
+
+    result = await archicad_call_tool("project_save_project", {"port": 19723, "confirm": True})
+
+    assert result.pop("changeLog")
+    assert result == {}
+    assert [command for command, _ in fake_archicad.calls] == ["SaveProject"]
+
+
+@pytest.mark.asyncio
+async def test_confirm_must_be_a_boolean(fake_archicad):
+    with pytest.raises(ToolError):
+        await archicad_call_tool("project_save_project", {"port": 19723, "confirm": "true"})
+
+    assert fake_archicad.calls == []
+
+
+def test_confirm_only_in_irreversible_schemas(fake_archicad):
+    irreversible = archicad_get_command_schema("project_save_project").input_schema
+    write = archicad_get_command_schema("elements_create_walls").input_schema
+
+    assert "confirm" in irreversible["properties"]
+    assert "confirm" not in write["properties"]
+
+
+def test_catalog_reports_kind(fake_archicad):
+    kinds = {command.name: command.kind for command in archicad_list_commands()}
+
+    assert kinds["elements_delete_elements"] == "irreversible"
+    assert kinds["elements_create_walls"] == "write"
+    assert kinds["elements_get_all_elements"] == "read"
+
+
+@pytest.mark.asyncio
+async def test_read_tool_continues_pages(fake_archicad):
+    elements = [{"elementId": {"guid": f"00000000-0000-0000-0000-{i:012d}"}} for i in range(150)]
+    fake_archicad.on_tapir_command("GetAllElements", {"elements": elements})
+    arguments = {"port": 19723, "params": {}}
+
+    first = await archicad_read_tool("elements_get_all_elements", arguments)
+    second = await archicad_read_tool(
+        "elements_get_all_elements", {**arguments, "page_token": first["next_page_token"]}
+    )
+
+    assert len(first["elements"]) == 100
+    assert len(second["elements"]) == 50
+    assert "next_page_token" not in second

@@ -42,6 +42,7 @@ register_tool_for_dispatch(
         "RotateElements do not work on hotlink instances."
     ),
     params_model=ChangeHotlinkInstancesParameters,
+    kind="write",
 )
 
 
@@ -64,6 +65,7 @@ register_tool_for_dispatch(
         "with UpdateHotlinks to re-read the content."
     ),
     params_model=ChangeHotlinkNodesParameters,
+    kind="write",
 )
 
 
@@ -78,6 +80,7 @@ register_tool_for_dispatch(
     title="CloseProject",
     description="Closes the currently opened project.",
     params_model=None,
+    kind="irreversible",
 )
 
 
@@ -94,6 +97,7 @@ register_tool_for_dispatch(
     title="CreateHotlinkInstances",
     description="Places instances of hotlink module nodes at an origin, rotation and mirroring.",
     params_model=CreateHotlinkInstancesParameters,
+    kind="write",
 )
 
 
@@ -116,6 +120,7 @@ register_tool_for_dispatch(
         "instead of duplicated (Archicad 26 and later; 25 cannot see an unplaced node)."
     ),
     params_model=CreateHotlinkNodesParameters,
+    kind="write",
 )
 
 
@@ -132,6 +137,7 @@ register_tool_for_dispatch(
     title="CreateProjectInfoFields",
     description="Creates one or more custom project info fields.",
     params_model=CreateProjectInfoFieldsParameters,
+    kind="write",
 )
 
 
@@ -148,6 +154,7 @@ register_tool_for_dispatch(
     title="DeleteProjectInfoFields",
     description="Deletes one or more custom project info fields. Hardcoded fields cannot be deleted.",
     params_model=DeleteProjectInfoFieldsParameters,
+    kind="irreversible",
 )
 
 
@@ -170,6 +177,7 @@ register_tool_for_dispatch(
         "key in a Text or Label content by surrounding it with '<' and '>'."
     ),
     params_model=GetAutoTextKeysParameters,
+    kind="read",
 )
 
 
@@ -192,6 +200,7 @@ register_tool_for_dispatch(
         "direct guid lookup for property-based keys instead of enumerating every property definition."
     ),
     params_model=GetAutoTextNameParameters,
+    kind="read",
 )
 
 
@@ -206,6 +215,7 @@ register_tool_for_dispatch(
     title="GetCalculationUnits",
     description="Gets the project calculation units.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -220,6 +230,7 @@ register_tool_for_dispatch(
     title="GetGeoLocation",
     description="Gets the project location details.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -239,6 +250,7 @@ register_tool_for_dispatch(
         "project."
     ),
     params_model=None,
+    kind="read",
 )
 
 
@@ -253,6 +265,7 @@ register_tool_for_dispatch(
     title="GetProjectInfoFields",
     description="Retrieves the names and values of all project info fields.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -273,6 +286,7 @@ register_tool_for_dispatch(
         "level, height and, from Archicad 28, the IFC GlobalId of each story."
     ),
     params_model=None,
+    kind="read",
 )
 
 
@@ -289,6 +303,7 @@ register_tool_for_dispatch(
     title="OpenProject",
     description="Opens the given project.",
     params_model=OpenProjectParameters,
+    kind="irreversible",
 )
 
 
@@ -305,6 +320,7 @@ register_tool_for_dispatch(
     title="PrintView",
     description="Prints from the current view.",
     params_model=PrintViewParameters,
+    kind="irreversible",
 )
 
 
@@ -321,6 +337,7 @@ register_tool_for_dispatch(
     title="RebuildView",
     description="Rebuilds the current view.",
     params_model=RebuildViewParameters,
+    kind="read",
 )
 
 
@@ -337,6 +354,7 @@ register_tool_for_dispatch(
     title="SaveAsModuleFile",
     description="Saves the given elements, or the current selection, as a hotlink module (.mod) file.",
     params_model=SaveAsModuleFileParameters,
+    kind="irreversible",
 )
 
 
@@ -351,6 +369,7 @@ register_tool_for_dispatch(
     title="SaveProject",
     description="Saves the currently opened project.",
     params_model=None,
+    kind="irreversible",
 )
 
 
@@ -367,6 +386,7 @@ register_tool_for_dispatch(
     title="SaveProjectAsArchive",
     description="Saves the open project as an archive (.pla) file, with the library parts it uses inside.",
     params_model=SaveProjectAsArchiveParameters,
+    kind="irreversible",
 )
 
 
@@ -383,6 +403,7 @@ register_tool_for_dispatch(
     title="SetGeoLocation",
     description="Sets the project location details.",
     params_model=SetGeoLocationParameters,
+    kind="write",
 )
 
 
@@ -399,6 +420,7 @@ register_tool_for_dispatch(
     title="SetProjectInfoField",
     description="Sets the value of a project info field.",
     params_model=SetProjectInfoFieldParameters,
+    kind="write",
 )
 
 
@@ -415,6 +437,7 @@ register_tool_for_dispatch(
     title="SetStories",
     description="Sets the story sructure of the currently loaded project.",
     params_model=SetStoriesParameters,
+    kind="write",
 )
 
 
@@ -437,4 +460,5 @@ register_tool_for_dispatch(
         "Hotlink Manager's Update button does."
     ),
     params_model=UpdateHotlinksParameters,
+    kind="write",
 )

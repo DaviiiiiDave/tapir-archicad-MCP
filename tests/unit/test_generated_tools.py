@@ -251,6 +251,8 @@ async def test_generated_create_tool_dispatches_params_and_preserves_raw_result(
         {"port": fake_archicad.port, "params": {"slabsData": []}},
     )
 
+    assert result.pop("changeLog")
+    assert result.pop("outcome") == {"requested": 0, "succeeded": 0, "failed": 0, "failuresByCause": []}
     assert result == {"elements": []}
     command, parameters = fake_archicad.calls[0]
     assert command == "CreateSlabs"
@@ -290,7 +292,7 @@ async def test_raw_archicad_error_payload_is_preserved(fake_archicad):
 
 async def test_unknown_port_is_rejected(fake_archicad):
     """Targeting a port that is not active must fail with a clear error."""
-    with pytest.raises(ToolError, match="19999"):
+    with pytest.raises(ToolError, match="port: Input should be less than 19744"):
         await archicad_call_tool("elements_get_selected_elements", {"port": 19999})
 
     assert fake_archicad.calls == []

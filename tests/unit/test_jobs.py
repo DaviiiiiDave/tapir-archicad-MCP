@@ -240,6 +240,19 @@ async def test_validation_does_not_admit_a_job(fake_archicad):
 
 
 @pytest.mark.asyncio
+async def test_truncated_means_more_pages_follow_even_at_an_exact_page_boundary(fake_archicad):
+    fake_archicad.on_tapir_command("GetSelectedElements", {"elements": list(range(200))})
+    first = await archicad_call_tool("elements_get_selected_elements", {"port": 19723})
+    second = await archicad_call_tool(
+        "elements_get_selected_elements", {"port": 19723, "page_token": first["next_page_token"]}
+    )
+
+    assert first["envelope"] == {"elements": {"total": 200, "returned": 100, "truncated": True}}
+    assert second["envelope"] == {"elements": {"total": 200, "returned": 100, "truncated": False}}
+    assert "next_page_token" not in second
+
+
+@pytest.mark.asyncio
 async def test_job_and_pages_remain_until_cleanup_even_after_instance_closes(job_store, job_clock, fake_archicad):
     job_store.settings = JobSettings(job_ttl_seconds=3600)
     fake_archicad.on_tapir_command("GetSelectedElements", {"elements": list(range(250))})
@@ -326,3 +339,8 @@ async def test_shutdown_stops_admission_and_drains_before_clearing(stores):
 def test_bundle_declares_job_tool():
     manifest = json.loads((Path(__file__).parents[2] / "manifest.json").read_text())
     assert "archicad_get_job" in {tool["name"] for tool in manifest["tools"]}
+
+
+def test_bundle_declares_read_tool():
+    manifest = json.loads((Path(__file__).parents[2] / "manifest.json").read_text())
+    assert "archicad_read_tool" in {tool["name"] for tool in manifest["tools"]}

@@ -24,6 +24,7 @@ register_tool_for_dispatch(
     title="GetCurrentRevisionChangesOfLayouts",
     description="Retrieves all changes belong to the last revision of the given layouts.",
     params_model=GetCurrentRevisionChangesOfLayoutsParameters,
+    kind="read",
 )
 
 
@@ -38,6 +39,7 @@ register_tool_for_dispatch(
     title="GetDocumentRevisions",
     description="Retrieves all document revisions.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -52,6 +54,7 @@ register_tool_for_dispatch(
     title="GetRevisionChanges",
     description="Retrieves all changes.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -69,6 +72,7 @@ register_tool_for_dispatch(
     title="GetRevisionChangesOfElements",
     description="Retrieves the changes belong to the given elements.",
     params_model=GetRevisionChangesOfElementsParameters,
+    kind="read",
 )
 
 
@@ -83,4 +87,5 @@ register_tool_for_dispatch(
     title="GetRevisionIssues",
     description="Retrieves all issues.",
     params_model=None,
+    kind="read",
 )

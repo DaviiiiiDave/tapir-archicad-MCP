@@ -2,7 +2,7 @@
 
 This project provides a Model Context Protocol (MCP) server for Archicad. It acts as a bridge, allowing AI agents and applications (like Claude for Desktop) to interact with running Archicad instances by wrapping both the community-driven **Tapir API** and the **official Archicad JSON API**.
 
-The server dynamically generates a comprehensive set of **191+** MCP tools from the combined API schemas, enabling fine-grained control over Archicad projects.
+The server dynamically generates a comprehensive set of **308** commands from the combined API schemas, enabling fine-grained control over Archicad projects.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)]()
@@ -12,7 +12,8 @@ The server dynamically generates a comprehensive set of **191+** MCP tools from 
 -   **Pydantic-Powered Runtime Validation & Schema Generation:** Every tool's input and output shapes are backed by rigorous Pydantic models. The server dynamically compiles these into detailed JSON Schemas for the AI agent to inspect, and strictly validates all incoming tool arguments at runtime *before* forwarding them to Archicad. It handles complex models, Union types, and TypeAliases seamlessly.
 -   **Progressive Tool Discovery (CLI-style):** The server uses a deterministic workflow (`archicad_list_commands` and `archicad_get_command_schema`) that allows AI agents to list available commands and fetch exact parameter schemas on demand. This avoids flooding the model's context window with large schemas.
 -   **No Heavy Machine-Learning Dependencies:** Vector-based search has been removed. The server no longer requires heavy packages like PyTorch, `faiss-cpu`, or `sentence-transformers`, dramatically reducing the package size and eliminating server startup delays.
--   **Massive Toolset, Minimal Footprint:** Provides access to a unified toolset of **191+ commands** by merging the community Tapir API and the official Archicad JSON API.
+-   **Massive Toolset, Minimal Footprint:** Provides access to a unified toolset of **308 commands** by merging the community Tapir API and the official Archicad JSON API.
+-   **Read, Write and Irreversible Commands:** Every command is classified (`kind` in `archicad_list_commands`). `archicad_read_tool` runs the commands that do not change project data or files (some change only the selection or view, e.g. selecting, highlighting, zooming), so a client can allow it without prompting. Commands that cannot be undone in Archicad or affect other users (e.g. saving, closing, Teamwork send/receive, publishing, deleting, opening, Teamwork reserve/release, IFC file operations, file exports and printing) only run with `"confirm": true` in the arguments.
 -   **Flexible Network Transports:** Supports `sse` (Server-Sent Events) and `streamable-http` transports in addition to standard input/output (`stdio`), allowing the server to be run on remote host configurations.
 -   **Bearer Token Authentication:** Secures HTTP endpoints when using SSE or Streamable-HTTP via an opt-in token validation middleware (`--token` flag or `TAPIR_MCP_TOKEN` environment variable).
 -   **Multi-Instance Control:** Connect to and manage multiple running Archicad instances simultaneously, targeting commands to specific instances via port numbers.
@@ -82,12 +83,13 @@ You can customize the server via CLI flags or environment variables:
 | `--async-threshold-seconds` | `TAPIR_MCP_ASYNC_THRESHOLD_SECONDS` | `45` | Seconds to wait before returning a running job handle |
 | `--job-ttl-seconds` | `TAPIR_MCP_JOB_TTL_SECONDS` | `86400` | Seconds to keep finished jobs; `0` disables time-based expiry |
 | `--max-completed-jobs` | `TAPIR_MCP_MAX_COMPLETED_JOBS` | `128` | Maximum number of finished jobs to keep |
+| `--change-log` | `TAPIR_MCP_CHANGE_LOG` | per-user data directory (Windows `%APPDATA%\tapir-archicad-mcp\change-log`) | Directory for the daily JSONL record of every dispatched command that changes the project, including failed ones |
 
 CLI flags override environment variables.
 
 ## Long-running commands
 
-Commands normally return their result directly. If a command takes longer than 45 seconds, `archicad_call_tool` returns a job handle while execution continues:
+Commands normally return their result directly. If a command takes longer than 45 seconds, `archicad_call_tool` or `archicad_read_tool` returns a job handle while execution continues:
 
 ```json
 {"status": "running", "jobHandle": "job:83af21..."}
@@ -114,9 +116,9 @@ Jobs remain available across HTTP client reconnects while the server is running,
    > "Using port 19723, get all the Wall elements from the project."
 
 5. The AI will execute a progressive discovery and calling loop:
-   - **Step 1:** It queries `archicad_list_commands` to look up the correct command name for the requested action (identifying `elements_get_elements_by_type`).
+   - **Step 1:** It queries `archicad_list_commands` (with `query="elements by type"` or `group="elements"` to keep the answer short) to look up the correct command name for the requested action (identifying `elements_get_elements_by_type`).
    - **Step 2:** It calls `archicad_get_command_schema` with the target command name to retrieve the exact required JSON parameter structure.
-   - **Step 3:** It calls `archicad_call_tool` with the command name, the targeted `port`, and the required parameter payload.
+   - **Step 3:** It calls `archicad_read_tool` (commands with `kind: "read"`) or `archicad_call_tool` (all commands) with the command name, the targeted `port`, and the required parameter payload.
 
 ## How It Works
 
@@ -127,6 +129,13 @@ The server operates through a layered architecture:
 -   **MCP Server (This Project):** Standardizes tool descriptions, parameters, and results, presenting a clean `list`/`schema`/`call` interface.
 -   **`multiconn_archicad` Library:** Resolves active socket connections and handles low-level command dispatch to Archicad instances.
 -   **Archicad & Tapir Add-On:** Built-in APIs and Tapir Add-on execute commands and return structured data.
+
+## Development
+
+-   `uv sync` installs the project and the dev dependencies.
+-   The unit and integration tests run without Archicad: `uv run pytest`.
+-   The tool wrappers under `src/tapir_archicad_mcp/tools/generated/` are generated: `uv run python scripts/generate_tools.py`. It needs network access to raw.githubusercontent.com and `ruff`, and every command must be classified in `scripts/generator_config.py` (read, write or irreversible), otherwise generation stops.
+-   `benchmark/` is a fork-only harness that needs a live Archicad 29. It is not part of the package.
 
 ## Contributing
 

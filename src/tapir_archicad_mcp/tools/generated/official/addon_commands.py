@@ -21,4 +21,5 @@ register_tool_for_dispatch(
     title="IsAddOnCommandAvailable",
     description="Checks if the command is available or not.",
     params_model=IsAddOnCommandAvailableParameters,
+    kind="read",
 )

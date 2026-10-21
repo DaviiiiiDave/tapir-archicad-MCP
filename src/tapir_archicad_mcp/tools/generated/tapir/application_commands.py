@@ -29,6 +29,7 @@ register_tool_for_dispatch(
         "activates that story on the floor plan."
     ),
     params_model=ChangeWindowParameters,
+    kind="write",
 )
 
 
@@ -43,6 +44,7 @@ register_tool_for_dispatch(
     title="GetAddOnVersion",
     description="Retrieves the version of the Tapir Additional JSON Commands Add-On.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -57,6 +59,7 @@ register_tool_for_dispatch(
     title="GetCurrentWindowType",
     description="Returns the type of the current (active) window.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -80,6 +83,7 @@ register_tool_for_dispatch(
         "cancelled."
     ),
     params_model=GetPointFromUserParameters,
+    kind="read",
 )
 
 
@@ -102,6 +106,7 @@ register_tool_for_dispatch(
         "temporary, application, defaults, templates, help, embedded project library, etc.)."
     ),
     params_model=GetSpecialFoldersParameters,
+    kind="read",
 )
 
 
@@ -116,6 +121,7 @@ register_tool_for_dispatch(
     title="GetUserGSID",
     description="Get the current registered User-GSID and OrganizationsID. Requires Archicad 27 or later.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -132,4 +138,5 @@ register_tool_for_dispatch(
     title="ShowAlert",
     description="Display a dialog with up to three buttons.",
     params_model=ShowAlertParameters,
+    kind="write",
 )

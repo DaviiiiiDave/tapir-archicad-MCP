@@ -31,7 +31,10 @@ class PaginationSnapshot:
         items = self.response[field]
         response[field] = deepcopy(items[offset : offset + PAGE_SIZE])
         response.pop("next_page_token", None)
-        if offset + PAGE_SIZE < len(items):
+        returned = len(response[field])
+        more_follow = offset + PAGE_SIZE < len(items)
+        response["envelope"] = {field: {"total": len(items), "returned": returned, "truncated": more_follow}}
+        if more_follow:
             response["next_page_token"] = f"{self.token}:{offset + PAGE_SIZE}"
         return response
 

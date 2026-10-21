@@ -43,6 +43,7 @@ register_tool_for_dispatch(
     title="CreateBuildingMaterials",
     description="Creates or overwrites Building Material attributes based on the given parameters.",
     params_model=CreateBuildingMaterialsParameters,
+    kind="write",
 )
 
 
@@ -59,6 +60,7 @@ register_tool_for_dispatch(
     title="CreateComposites",
     description="Creates or overwrites Composite attributes based on the given parameters.",
     params_model=CreateCompositesParameters,
+    kind="write",
 )
 
 
@@ -75,6 +77,7 @@ register_tool_for_dispatch(
     title="CreateFills",
     description="Creates or overwrites Fill attributes based on the given parameters.",
     params_model=CreateFillsParameters,
+    kind="write",
 )
 
 
@@ -91,6 +94,7 @@ register_tool_for_dispatch(
     title="CreateLayerCombinations",
     description="Creates or overwrites Layer Combination attributes based on the given parameters.",
     params_model=CreateLayerCombinationsParameters,
+    kind="write",
 )
 
 
@@ -107,6 +111,7 @@ register_tool_for_dispatch(
     title="CreateLayers",
     description="Creates or overwrites Layer attributes based on the given parameters.",
     params_model=CreateLayersParameters,
+    kind="write",
 )
 
 
@@ -123,6 +128,7 @@ register_tool_for_dispatch(
     title="CreateLines",
     description="Creates or overwrites Line attributes based on the given parameters.",
     params_model=CreateLinesParameters,
+    kind="write",
 )
 
 
@@ -145,6 +151,7 @@ register_tool_for_dispatch(
         "surface) based on the given parameters."
     ),
     params_model=CreateMEPSystemsParameters,
+    kind="write",
 )
 
 
@@ -161,6 +168,7 @@ register_tool_for_dispatch(
     title="CreatePenTables",
     description="Creates or overwrites Pen Table attributes based on the given parameters.",
     params_model=CreatePenTablesParameters,
+    kind="write",
 )
 
 
@@ -182,6 +190,7 @@ register_tool_for_dispatch(
         "parameters."
     ),
     params_model=CreateProfilesParameters,
+    kind="write",
 )
 
 
@@ -198,6 +207,7 @@ register_tool_for_dispatch(
     title="CreateSurfaces",
     description="Creates or overwrites Surface attributes based on the given parameters.",
     params_model=CreateSurfacesParameters,
+    kind="write",
 )
 
 
@@ -214,6 +224,7 @@ register_tool_for_dispatch(
     title="CreateZoneCategories",
     description="Creates or overwrites Zone Category attributes based on the given parameters.",
     params_model=CreateZoneCategoriesParameters,
+    kind="write",
 )
 
 
@@ -236,6 +247,7 @@ register_tool_for_dispatch(
     description="Returns the details of every attribute of the given type.",
     params_model=GetAttributesByTypeParameters,
     pagination_field="attributes",
+    kind="read",
 )
 
 
@@ -255,6 +267,7 @@ register_tool_for_dispatch(
     title="GetBuildingMaterialPhysicalProperties",
     description="Retrieves the physical properties of the given Building Materials.",
     params_model=GetBuildingMaterialPhysicalPropertiesParameters,
+    kind="read",
 )
 
 
@@ -271,6 +284,7 @@ register_tool_for_dispatch(
     title="GetBuildingMaterials",
     description="Returns the details of the given Building Material attributes.",
     params_model=GetBuildingMaterialsParameters,
+    kind="read",
 )
 
 
@@ -287,6 +301,7 @@ register_tool_for_dispatch(
     title="GetComposites",
     description="Returns the details of the given Composite attributes.",
     params_model=GetCompositesParameters,
+    kind="read",
 )
 
 
@@ -303,6 +318,7 @@ register_tool_for_dispatch(
     title="GetFills",
     description="Returns the details of the given Fill attributes.",
     params_model=GetFillsParameters,
+    kind="read",
 )
 
 
@@ -319,6 +335,7 @@ register_tool_for_dispatch(
     title="GetLayerCombinations",
     description="Returns the details of layer combination attributes.",
     params_model=GetLayerCombinationsParameters,
+    kind="read",
 )
 
 
@@ -335,6 +352,7 @@ register_tool_for_dispatch(
     title="GetLayers",
     description="Returns the details of the given Layer attributes.",
     params_model=GetLayersParameters,
+    kind="read",
 )
 
 
@@ -351,6 +369,7 @@ register_tool_for_dispatch(
     title="GetLines",
     description="Returns the details of the given Line attributes.",
     params_model=GetLinesParameters,
+    kind="read",
 )
 
 
@@ -373,6 +392,7 @@ register_tool_for_dispatch(
         "insulation surface)."
     ),
     params_model=GetMEPSystemsParameters,
+    kind="read",
 )
 
 
@@ -389,6 +409,7 @@ register_tool_for_dispatch(
     title="GetPenTables",
     description="Returns the details of the given Pen Table attributes.",
     params_model=GetPenTablesParameters,
+    kind="read",
 )
 
 
@@ -405,6 +426,7 @@ register_tool_for_dispatch(
     title="GetProfiles",
     description="Returns the details of the given Profile attributes.",
     params_model=GetProfilesParameters,
+    kind="read",
 )
 
 
@@ -421,6 +443,7 @@ register_tool_for_dispatch(
     title="GetSurfaces",
     description="Returns the details of the given Surface attributes.",
     params_model=GetSurfacesParameters,
+    kind="read",
 )
 
 
@@ -437,4 +460,5 @@ register_tool_for_dispatch(
     title="GetZoneCategories",
     description="Returns the details of the given Zone Category attributes.",
     params_model=GetZoneCategoriesParameters,
+    kind="read",
 )

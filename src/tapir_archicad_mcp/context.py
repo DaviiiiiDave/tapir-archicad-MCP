@@ -3,6 +3,7 @@ from typing import Any, Generic, TypeVar
 from mcp.server.mcpserver import MCPServer
 from multiconn_archicad import MultiConn
 
+from tapir_archicad_mcp.change_log import ChangeLog
 from tapir_archicad_mcp.jobs import JobStore
 
 T = TypeVar("T")
@@ -32,3 +33,4 @@ class ServerState(Generic[T]):
 mcp_instance: ServerState[MCPServer] = ServerState("mcp_instance")
 multi_conn_instance: ServerState[MultiConn] = ServerState("multi_conn_instance")
 job_store_instance: ServerState[JobStore] = ServerState("job_store_instance")
+change_log_instance: ServerState[ChangeLog] = ServerState("change_log_instance")

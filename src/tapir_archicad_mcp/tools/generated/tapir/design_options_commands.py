@@ -30,6 +30,7 @@ register_tool_for_dispatch(
     title="CreateDesignOptionCombinations",
     description="Creates new design option combinations with the given parameters. Available from Archicad 29.",
     params_model=CreateDesignOptionCombinationsParameters,
+    kind="write",
 )
 
 
@@ -46,6 +47,7 @@ register_tool_for_dispatch(
     title="CreateDesignOptionSets",
     description="Creates new design option sets with the given names. Available from Archicad 29.",
     params_model=CreateDesignOptionSetsParameters,
+    kind="write",
 )
 
 
@@ -62,6 +64,7 @@ register_tool_for_dispatch(
     title="CreateDesignOptions",
     description="Creates new design options with the given parameters. Available from Archicad 29.",
     params_model=CreateDesignOptionsParameters,
+    kind="write",
 )
 
 
@@ -76,6 +79,7 @@ register_tool_for_dispatch(
     title="GetDesignOptionCombinations",
     description="Retrieves information about existing design option combinations.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -93,6 +97,7 @@ register_tool_for_dispatch(
     title="GetDesignOptionForElements",
     description="Retrieves the design option association for the specified elements. Available from Archicad 29.",
     params_model=GetDesignOptionForElementsParameters,
+    kind="read",
 )
 
 
@@ -107,6 +112,7 @@ register_tool_for_dispatch(
     title="GetDesignOptionSets",
     description="Retrieves information about existing design option sets. Available from Archicad 29.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -121,6 +127,7 @@ register_tool_for_dispatch(
     title="GetDesignOptions",
     description="Retrieves information about existing design options. Available from Archicad 29.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -138,6 +145,7 @@ register_tool_for_dispatch(
     title="GetElementsOfDesignOptions",
     description="Retrieves the elements associated with the given design options. Available from Archicad 29.",
     params_model=GetElementsOfDesignOptionsParameters,
+    kind="read",
 )
 
 
@@ -157,6 +165,7 @@ register_tool_for_dispatch(
     title="MoveDesignOptionsToAnotherSet",
     description="Moves the given design options to another sets. Available from Archicad 29.",
     params_model=MoveDesignOptionsToAnotherSetParameters,
+    kind="write",
 )
 
 
@@ -180,6 +189,7 @@ register_tool_for_dispatch(
         "from any design options and move it to the main model. Available from Archicad 29."
     ),
     params_model=MoveElementsToDesignOptionsParameters,
+    kind="write",
 )
 
 
@@ -199,4 +209,5 @@ register_tool_for_dispatch(
     title="SetActiveDesignOptionsInCombinations",
     description="Sets active design options in the given combinations. Available from Archicad 29.",
     params_model=SetActiveDesignOptionsInCombinationsParameters,
+    kind="write",
 )

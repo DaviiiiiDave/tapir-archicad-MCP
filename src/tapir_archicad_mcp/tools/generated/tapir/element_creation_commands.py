@@ -45,6 +45,7 @@ register_tool_for_dispatch(
     title="CreateArcs",
     description="Creates Arc elements based on the given parameters.",
     params_model=CreateArcsParameters,
+    kind="write",
 )
 
 
@@ -62,6 +63,7 @@ register_tool_for_dispatch(
     title="CreateAssociativeDimensions",
     description="Creates associative linear dimensions from explicit witness point references.",
     params_model=CreateAssociativeDimensionsParameters,
+    kind="write",
 )
 
 
@@ -89,6 +91,7 @@ register_tool_for_dispatch(
         "sectionElementIds."
     ),
     params_model=CreateAssociativeDimensionsOnSectionParameters,
+    kind="write",
 )
 
 
@@ -105,6 +108,7 @@ register_tool_for_dispatch(
     title="CreateBeams",
     description="Creates Beam elements based on the given parameters.",
     params_model=CreateBeamsParameters,
+    kind="write",
 )
 
 
@@ -121,6 +125,7 @@ register_tool_for_dispatch(
     title="CreateCircles",
     description="Creates Circle elements based on the given parameters.",
     params_model=CreateCirclesParameters,
+    kind="write",
 )
 
 
@@ -137,6 +142,7 @@ register_tool_for_dispatch(
     title="CreateColumns",
     description="Creates Column elements based on the given parameters.",
     params_model=CreateColumnsParameters,
+    kind="write",
 )
 
 
@@ -153,6 +159,7 @@ register_tool_for_dispatch(
     title="CreateDoors",
     description="Creates Door elements in host walls based on the given parameters.",
     params_model=CreateDoorsParameters,
+    kind="write",
 )
 
 
@@ -169,6 +176,7 @@ register_tool_for_dispatch(
     title="CreateHatches",
     description="Creates Hatch elements based on the given parameters.",
     params_model=CreateHatchesParameters,
+    kind="write",
 )
 
 
@@ -185,6 +193,7 @@ register_tool_for_dispatch(
     title="CreateHotspots",
     description="Creates Hotspot elements based on the given parameters.",
     params_model=CreateHotspotsParameters,
+    kind="write",
 )
 
 
@@ -201,6 +210,7 @@ register_tool_for_dispatch(
     title="CreateLabels",
     description="Creates Label elements based on the given parameters.",
     params_model=CreateLabelsParameters,
+    kind="write",
 )
 
 
@@ -217,6 +227,7 @@ register_tool_for_dispatch(
     title="CreateLamps",
     description="Creates Lamp elements based on the given parameters.",
     params_model=CreateLampsParameters,
+    kind="write",
 )
 
 
@@ -233,6 +244,7 @@ register_tool_for_dispatch(
     title="CreateLineElements",
     description="Creates Line elements based on the given parameters.",
     params_model=CreateLineElementsParameters,
+    kind="write",
 )
 
 
@@ -249,6 +261,7 @@ register_tool_for_dispatch(
     title="CreateMeshes",
     description="Creates Mesh elements based on the given parameters.",
     params_model=CreateMeshesParameters,
+    kind="write",
 )
 
 
@@ -265,6 +278,7 @@ register_tool_for_dispatch(
     title="CreateMorphs",
     description="Creates Morph elements from simple box definitions.",
     params_model=CreateMorphsParameters,
+    kind="write",
 )
 
 
@@ -281,6 +295,7 @@ register_tool_for_dispatch(
     title="CreateObjects",
     description="Creates Object elements based on the given parameters.",
     params_model=CreateObjectsParameters,
+    kind="write",
 )
 
 
@@ -297,6 +312,7 @@ register_tool_for_dispatch(
     title="CreateOpenings",
     description="Creates Opening elements in the given host elements.",
     params_model=CreateOpeningsParameters,
+    kind="write",
 )
 
 
@@ -313,6 +329,7 @@ register_tool_for_dispatch(
     title="CreatePolylines",
     description="Creates Polyline elements based on the given parameters.",
     params_model=CreatePolylinesParameters,
+    kind="write",
 )
 
 
@@ -335,6 +352,7 @@ register_tool_for_dispatch(
         "pass 'pivotLine' (and optionally 'angle') to create a single-plane roof instead."
     ),
     params_model=CreateRoofsParameters,
+    kind="write",
 )
 
 
@@ -351,6 +369,7 @@ register_tool_for_dispatch(
     title="CreateSlabs",
     description="Creates Slab elements based on the given parameters.",
     params_model=CreateSlabsParameters,
+    kind="write",
 )
 
 
@@ -367,6 +386,7 @@ register_tool_for_dispatch(
     title="CreateSplines",
     description="Creates Spline elements based on the given parameters.",
     params_model=CreateSplinesParameters,
+    kind="write",
 )
 
 
@@ -383,6 +403,7 @@ register_tool_for_dispatch(
     title="CreateStairs",
     description="Creates Stair elements based on the given baseline and parameters.",
     params_model=CreateStairsParameters,
+    kind="write",
 )
 
 
@@ -399,6 +420,7 @@ register_tool_for_dispatch(
     title="CreateTexts",
     description="Creates standalone Text elements based on the given parameters.",
     params_model=CreateTextsParameters,
+    kind="write",
 )
 
 
@@ -416,6 +438,7 @@ register_tool_for_dispatch(
     title="CreateWallThicknessDimensions",
     description="Creates associative wall thickness dimensions for the given walls.",
     params_model=CreateWallThicknessDimensionsParameters,
+    kind="write",
 )
 
 
@@ -432,6 +455,7 @@ register_tool_for_dispatch(
     title="CreateWalls",
     description="Creates Wall elements based on the given parameters.",
     params_model=CreateWallsParameters,
+    kind="write",
 )
 
 
@@ -448,6 +472,7 @@ register_tool_for_dispatch(
     title="CreateWindows",
     description="Creates Window elements in host walls based on the given parameters.",
     params_model=CreateWindowsParameters,
+    kind="write",
 )
 
 
@@ -464,4 +489,5 @@ register_tool_for_dispatch(
     title="CreateZones",
     description="Creates Zone elements based on the given parameters.",
     params_model=CreateZonesParameters,
+    kind="write",
 )

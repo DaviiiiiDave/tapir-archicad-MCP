@@ -23,6 +23,7 @@ register_tool_for_dispatch(
     title="CreateGroups",
     description="Creates groups of the passed elements",
     params_model=CreateGroupsParameters,
+    kind="write",
 )
 
 
@@ -39,6 +40,7 @@ register_tool_for_dispatch(
     title="GetElementsOfGroups",
     description="Gets the elements directly contained by each given group.",
     params_model=GetElementsOfGroupsParameters,
+    kind="read",
 )
 
 
@@ -61,6 +63,7 @@ register_tool_for_dispatch(
         "that are not part of any group."
     ),
     params_model=GetGroupsOfElementsParameters,
+    kind="read",
 )
 
 
@@ -75,6 +78,7 @@ register_tool_for_dispatch(
     title="GetSuspendGroupsMode",
     description="Gets the current state of the Suspend Groups mode.",
     params_model=None,
+    kind="read",
 )
 
 
@@ -97,4 +101,5 @@ register_tool_for_dispatch(
         "group; remember to restore the previous state afterwards."
     ),
     params_model=SetSuspendGroupsModeParameters,
+    kind="write",
 )

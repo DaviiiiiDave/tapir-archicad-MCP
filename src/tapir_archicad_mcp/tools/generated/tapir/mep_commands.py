@@ -33,6 +33,7 @@ register_tool_for_dispatch(
         "elements as needed. Available from Archicad 28."
     ),
     params_model=ConnectMEPElementsParameters,
+    kind="write",
 )
 
 
@@ -54,6 +55,7 @@ register_tool_for_dispatch(
         "Archicad 28."
     ),
     params_model=CreateMEPElementsParameters,
+    kind="write",
 )
 
 
@@ -77,6 +79,7 @@ register_tool_for_dispatch(
         "28."
     ),
     params_model=CreateMEPRoutingElementsParameters,
+    kind="write",
 )
 
 
@@ -97,6 +100,7 @@ register_tool_for_dispatch(
         "elements. Available from Archicad 28."
     ),
     params_model=None,
+    kind="read",
 )
 
 
@@ -125,6 +129,7 @@ register_tool_for_dispatch(
     ),
     params_model=GetMEPElementsParameters,
     pagination_field="elements",
+    kind="read",
 )
 
 
@@ -147,6 +152,7 @@ register_tool_for_dispatch(
         "Available from Archicad 28."
     ),
     params_model=GetMEPPortsParameters,
+    kind="read",
 )
 
 
@@ -169,6 +175,7 @@ register_tool_for_dispatch(
         "Ventilation domain. Available from Archicad 28."
     ),
     params_model=GetMEPPreferenceTablesParameters,
+    kind="read",
 )
 
 
@@ -191,6 +198,7 @@ register_tool_for_dispatch(
         "cross section data (shape, size, preference table and reference id) and nodes. Available from Archicad 28."
     ),
     params_model=GetMEPRoutingElementsParameters,
+    kind="read",
 )
 
 
@@ -213,4 +221,5 @@ register_tool_for_dispatch(
         "reference id) of all segments and node positions. Available from Archicad 28."
     ),
     params_model=ModifyMEPRoutingElementsParameters,
+    kind="write",
 )

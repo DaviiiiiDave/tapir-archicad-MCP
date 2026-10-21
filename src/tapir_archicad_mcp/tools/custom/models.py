@@ -67,6 +67,12 @@ class CommandOverview(BaseModel):
 
     name: str = Field(description="The unique, snake-cased name of the tool (e.g., 'elements_get_all_elements').")
     description: str = Field(description="A brief explanation of the tool's function.")
+    kind: Literal["read", "write", "irreversible"] = Field(
+        description=(
+            "'read' does not change the project, 'write' changes it, 'irreversible' cannot be undone in Archicad "
+            "or affects other users and needs confirm=true."
+        )
+    )
 
 
 class CommandSchema(BaseModel):

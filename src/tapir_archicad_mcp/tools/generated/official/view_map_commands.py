@@ -22,6 +22,7 @@ register_tool_for_dispatch(
     title="CloneProjectMapItemToViewMap",
     description="Clones a project map item to the view map.",
     params_model=CloneProjectMapItemToViewMapParameters,
+    kind="write",
 )
 
 
@@ -38,4 +39,5 @@ register_tool_for_dispatch(
     title="CreateViewMapFolder",
     description="Creates a view folder item at the given position in the navigator tree.",
     params_model=CreateViewMapFolderParameters,
+    kind="write",
 )

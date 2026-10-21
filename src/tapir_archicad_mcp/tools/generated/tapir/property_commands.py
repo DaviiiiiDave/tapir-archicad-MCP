@@ -30,6 +30,7 @@ register_tool_for_dispatch(
     title="CreatePropertyDefinitions",
     description="Creates Custom Property Definitions based on the given parameters.",
     params_model=CreatePropertyDefinitionsParameters,
+    kind="write",
 )
 
 
@@ -46,6 +47,7 @@ register_tool_for_dispatch(
     title="CreatePropertyGroups",
     description="Creates Property Groups based on the given parameters.",
     params_model=CreatePropertyGroupsParameters,
+    kind="write",
 )
 
 
@@ -62,6 +64,7 @@ register_tool_for_dispatch(
     title="DeletePropertyDefinitions",
     description="Deletes the given Custom Property Definitions.",
     params_model=DeletePropertyDefinitionsParameters,
+    kind="irreversible",
 )
 
 
@@ -78,6 +81,7 @@ register_tool_for_dispatch(
     title="DeletePropertyGroups",
     description="Deletes the given Custom Property Groups.",
     params_model=DeletePropertyGroupsParameters,
+    kind="irreversible",
 )
 
 
@@ -98,6 +102,7 @@ register_tool_for_dispatch(
     description="Returns all user defined and built-in properties.",
     params_model=None,
     pagination_field="properties",
+    kind="read",
 )
 
 
@@ -115,6 +120,7 @@ register_tool_for_dispatch(
     title="GetPropertyValuesOfAttributes",
     description="Returns the property values of the attributes for the given property.",
     params_model=GetPropertyValuesOfAttributesParameters,
+    kind="read",
 )
 
 
@@ -138,6 +144,7 @@ register_tool_for_dispatch(
         "elements also."
     ),
     params_model=GetPropertyValuesOfElementsParameters,
+    kind="read",
 )
 
 
@@ -160,6 +167,7 @@ register_tool_for_dispatch(
         "property definitions it created and removed."
     ),
     params_model=ImportPropertiesXmlParameters,
+    kind="irreversible",
 )
 
 
@@ -177,6 +185,7 @@ register_tool_for_dispatch(
     title="SetPropertyValuesOfAttributes",
     description="Sets the property values of attributes.",
     params_model=SetPropertyValuesOfAttributesParameters,
+    kind="write",
 )
 
 
@@ -194,6 +203,7 @@ register_tool_for_dispatch(
     title="SetPropertyValuesOfElements",
     description="Sets the property values of elements. It works for subelements of hierarchal elements also.",
     params_model=SetPropertyValuesOfElementsParameters,
+    kind="write",
 )
 
 
@@ -216,6 +226,7 @@ register_tool_for_dispatch(
         "value or expressions, availability, and enum options (add, rename, remove, reorder)."
     ),
     params_model=UpdatePropertyDefinitionsParameters,
+    kind="write",
 )
 
 
@@ -232,4 +243,5 @@ register_tool_for_dispatch(
     title="UpdatePropertyGroups",
     description="Updates the name and/or description of existing Custom Property Groups, keeping their guid.",
     params_model=UpdatePropertyGroupsParameters,
+    kind="write",
 )

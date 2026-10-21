@@ -28,4 +28,5 @@ register_tool_for_dispatch(
         "Only works for elements detailed in <i>Element Information</i>."
     ),
     params_model=Get2DBoundingBoxesParameters,
+    kind="read",
 )
