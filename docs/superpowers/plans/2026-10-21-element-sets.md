@@ -257,6 +257,18 @@ current: 4
 
 **Stage 4 ends here:** review, PR, merge, then Stage 4→5.
 
+**Amendments after the Stage 4 review (approved by Dave, 2026-10-21).** They override Tasks 4 and 5 and decisions 3 and 4 where they differ.
+- **Property definitions.** `read_property_values` first makes one official `API.GetDetailsOfProperties` call for the requested properties. A property guid the project does not know raises `ToolError` naming that guid.
+- **Enum display values** (spec §5.6). The official API returns built-in enum values by their non-localized id ("Straight"). Cells map every enum id through the definition's `possibleEnumValues` to its `displayValue` ("gerade"), so typed and fallback cells agree. An id the definition does not list raises `ToolError`.
+- **Fallback cells carry the declared type.** `value_type` of a Tapir cell is the property's official type from the definition, still with `typed=False`. Type mismatches raise on fallback cells as on typed ones. A fallback cell decides a criterion only when the property type is `string` and the operator is `Equal`, `NotEqual` or `Contains` with a string value on status `normal`. Everything else on a fallback cell, including non-normal statuses, is `None`, so it is counted as not comparable.
+- **Tolerance** (decision 4). `rel_tol=1e-9`, `abs_tol=1e-9`, because Archicad rounds values to 9 decimals (live: 90° comes back as 1.570796327). All six numeric comparisons use it: `LessOrEqual` = less or close, `Less` = less and not close, likewise for greater. `integer` properties compare exactly.
+- **For Stage 5** (Tasks 7–9):
+  - `filter_guids` also reports unreadable elements.
+  - Untyped status cells render as `{"status": …, "typed": false}`.
+  - Units come from the definition's type.
+  - `ensure_supported` runs for every criterion before any Archicad read.
+  - Element counts per read are capped and chunked, and every Archicad call gets an explicit timeout.
+
 ## Stage 5: Property search, rows, aggregates, export (spec step 7)
 
 ### Task 6: `properties_search`
