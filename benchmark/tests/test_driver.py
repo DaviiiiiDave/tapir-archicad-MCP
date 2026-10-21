@@ -74,7 +74,8 @@ def test_timeout_marks_run_and_kills_process(tmp_path):
     assert outcome.timed_out is True
     assert outcome.wall_s < 30
     if sys.platform == "win32":
+        # Bytes, not text: tasklist answers in the console's OEM code page (German "ausgeführt" breaks cp1252).
         listing = subprocess.run(
-            ["tasklist", "/FI", f"PID eq {outcome.pid}", "/NH"], capture_output=True, text=True, check=True
+            ["tasklist", "/FI", f"PID eq {outcome.pid}", "/NH"], capture_output=True, check=True
         ).stdout
-        assert str(outcome.pid) not in listing
+        assert str(outcome.pid).encode() not in listing
