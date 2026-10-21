@@ -75,10 +75,26 @@ def _count_types(conn_header: ConnHeader, guids: Sequence[str]) -> dict[str, int
     entries = response["typesOfElements"]
     if len(entries) != len(guids):
         raise _type_count_error(f"Archicad returned {len(entries)} type entries for {len(guids)} elements")
-    counts = Counter(
-        entry["typeOfElement"]["elementType"] if "typeOfElement" in entry else UNREADABLE_TYPE for entry in entries
-    )
+    counts = Counter(entry["typeOfElement"]["elementType"] for entry in entries if "typeOfElement" in entry)
+    # The official API types construction elements only; Tapir also types drafting elements such as lines and text.
+    rejected = [guid for guid, entry in zip(guids, entries) if "typeOfElement" not in entry]
+    if rejected:
+        counts.update(_tapir_types(conn_header, rejected))
     return dict(counts)
+
+
+def _tapir_types(conn_header: ConnHeader, guids: Sequence[str]) -> list[str]:
+    try:
+        response = conn_header.core.post_tapir_command(
+            command="GetDetailsOfElements",
+            parameters={"elements": [{"elementId": {"guid": guid}} for guid in guids], "fields": ["type"]},
+        )
+    except APIErrorBase as e:
+        raise _type_count_error(e.message) from None
+    details = response["detailsOfElements"]
+    if len(details) != len(guids):
+        raise _type_count_error(f"Tapir returned {len(details)} type entries for {len(guids)} elements")
+    return [detail.get("type", UNREADABLE_TYPE) for detail in details]
 
 
 def _type_count_error(reason: str) -> ToolError:
