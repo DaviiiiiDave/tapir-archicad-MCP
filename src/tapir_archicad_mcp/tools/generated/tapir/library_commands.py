@@ -47,7 +47,7 @@ register_tool_for_dispatch(
     title="AddLibraries",
     description="Adds the given folders to the project's local libraries, skipping any already loaded.",
     params_model=AddLibrariesParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 
@@ -127,7 +127,7 @@ register_tool_for_dispatch(
     title="ReloadLibraries",
     description="Executes the reload libraries command.",
     params_model=None,
-    kind="write",
+    kind="irreversible",
 )
 
 

@@ -28,7 +28,7 @@ register_tool_for_dispatch(
     title="AddCommentToIssue",
     description="Adds a new comment to the specified issue.",
     params_model=AddCommentToIssueParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 
@@ -45,7 +45,7 @@ register_tool_for_dispatch(
     title="AttachElementsToIssue",
     description="Attaches elements to the specified issue.",
     params_model=AttachElementsToIssueParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 
@@ -96,7 +96,7 @@ register_tool_for_dispatch(
     title="DetachElementsFromIssue",
     description="Detaches elements from the specified issue.",
     params_model=DetachElementsFromIssueParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 

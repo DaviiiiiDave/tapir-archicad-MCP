@@ -24,9 +24,9 @@ class ApiSourceConfig:
     commands_to_exclude: set[str] = field(default_factory=set)
     # Every command is in exactly one of the three sets (checked by classify_command):
     #   read: does not change project data or files.
-    #   write: changes project data; most can be undone with Archicad's undo, issue and library commands may not be.
+    #   write: changes project data or Archicad state; most of it can be undone with Archicad's undo.
     #   irreversible: open/close/save, delete, Teamwork send/receive/reserve/release, publish, IFC file operations,
-    #     anything that replaces or overwrites user files or affects other users.
+    #     imports, library and issue changes, anything that overwrites user files or affects other users.
     read_commands: set[str] = field(default_factory=set)
     write_commands: set[str] = field(default_factory=set)
     irreversible_commands: set[str] = field(default_factory=set)
@@ -171,12 +171,9 @@ TAPIR_CONFIG = ApiSourceConfig(
         "HighlightElements",
         "RebuildView",
     },
-    write_commands={  # change project data; most can be undone, issue and library commands may not be
-        "AddCommentToIssue",
-        "AddLibraries",
+    write_commands={  # change project data or Archicad state; most can be undone
         "ApplyFavoritesToElementDefaults",
         "ApplyFavoritesToElements",
-        "AttachElementsToIssue",
         "ChangeDrawingLink",
         "ChangeHotlinkInstances",
         "ChangeHotlinkNodes",
@@ -247,7 +244,6 @@ TAPIR_CONFIG = ApiSourceConfig(
         "CreateWorksheets",
         "CreateZoneCategories",
         "CreateZones",
-        "DetachElementsFromIssue",
         "LockElements",
         "ModifyBeams",
         "ModifyColumns",
@@ -268,7 +264,6 @@ TAPIR_CONFIG = ApiSourceConfig(
         "MoveDesignOptionsToAnotherSet",
         "MoveElements",
         "MoveElementsToDesignOptions",
-        "ReloadLibraries",
         "RemoveElementNotificationClient",
         "RemoveElementTrims",
         "RemoveSolidElementLinks",
@@ -304,8 +299,11 @@ TAPIR_CONFIG = ApiSourceConfig(
         "UpdatePropertyGroups",
         "UpdateZones",
     },
-    irreversible_commands={  # cannot be undone in Archicad or affect other users
+    irreversible_commands={  # cannot be undone in Archicad (incl. library and issue changes) or affect other users
+        "AddCommentToIssue",
         "AddFilesToEmbeddedLibrary",
+        "AddLibraries",
+        "AttachElementsToIssue",
         "CloseProject",
         "CreateIssue",
         "DeleteClassificationItems",
@@ -319,6 +317,7 @@ TAPIR_CONFIG = ApiSourceConfig(
         "DeleteProjectInfoFields",
         "DeletePropertyDefinitions",
         "DeletePropertyGroups",
+        "DetachElementsFromIssue",
         "ExportFavorites",
         "ExportIssuesToBCF",
         "IFCFileOperation",
@@ -332,6 +331,7 @@ TAPIR_CONFIG = ApiSourceConfig(
         "ReleaseElements",
         "ReleaseHotlinkCacheManagement",
         "ReleaseLockableObjectSet",
+        "ReloadLibraries",
         "ReserveElements",
         "ReserveHotlinkCacheManagement",
         "ReserveLockableObjectSet",
@@ -444,7 +444,7 @@ OFFICIAL_CONFIG = ApiSourceConfig(
         "GetWorksheetNavigatorItems",
         "IsAddOnCommandAvailable",
     },
-    write_commands={  # change project data; most can be undone, issue and library commands may not be
+    write_commands={  # change project data or Archicad state; most can be undone
         "CloneProjectMapItemToViewMap",
         "CreateAttributeFolders",
         "CreateLayout",
@@ -455,7 +455,7 @@ OFFICIAL_CONFIG = ApiSourceConfig(
         "RenameAttributeFolders",
         "SetLayoutSettings",
     },
-    irreversible_commands={  # cannot be undone in Archicad or affect other users
+    irreversible_commands={  # cannot be undone in Archicad (incl. library and issue changes) or affect other users
         "DeleteAttributeFolders",
         "DeleteAttributes",
         "DeleteNavigatorItems",

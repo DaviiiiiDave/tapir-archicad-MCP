@@ -84,7 +84,10 @@ def test_config_lists_name_only_registered_commands(fake_archicad):
 
 EXPECTED_IRREVERSIBLE = {
     "tapir": {
+        "AddCommentToIssue",
         "AddFilesToEmbeddedLibrary",
+        "AddLibraries",
+        "AttachElementsToIssue",
         "CloseProject",
         "CreateIssue",
         "DeleteClassificationItems",
@@ -98,6 +101,7 @@ EXPECTED_IRREVERSIBLE = {
         "DeleteProjectInfoFields",
         "DeletePropertyDefinitions",
         "DeletePropertyGroups",
+        "DetachElementsFromIssue",
         "ExportFavorites",
         "ExportIssuesToBCF",
         "IFCFileOperation",
@@ -111,6 +115,7 @@ EXPECTED_IRREVERSIBLE = {
         "ReleaseElements",
         "ReleaseHotlinkCacheManagement",
         "ReleaseLockableObjectSet",
+        "ReloadLibraries",
         "ReserveElements",
         "ReserveHotlinkCacheManagement",
         "ReserveLockableObjectSet",
