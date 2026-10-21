@@ -51,6 +51,10 @@ class SetStore:
                 self._sets.popitem(last=False)
         return element_set
 
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._sets)
+
     def get(self, set_id: str, port: int, project: str) -> ElementSet:
         """Return the set and mark it as recently used. Raises ToolError if it is unknown or bound elsewhere."""
         with self._lock:

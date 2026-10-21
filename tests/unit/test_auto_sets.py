@@ -4,8 +4,13 @@ import re
 import pytest
 from multiconn_archicad import APIResponseError, UntitledProjectID
 
+import tapir_archicad_mcp.app
 from tapir_archicad_mcp.auto_sets import AUTO_SET_FIELDS, INLINE_THRESHOLD, UNTITLED_WARNING
 from tapir_archicad_mcp.tools.custom.functions import archicad_read_tool
+from tapir_archicad_mcp.tools.tool_registry import TOOL_CALLABLE_REGISTRY, TOOL_DISCOVERY_CATALOG
+
+# Captured while the test module is imported, before any fixture can override the flag.
+PRODUCTION_DEFAULT = tapir_archicad_mcp.app.element_sets_enabled
 
 PORT = 19723
 PROJECT = "/path/to/fake_project.pln"
@@ -91,7 +96,7 @@ async def test_flag_off_keeps_raw_lists_and_pages(fake_archicad, set_store, monk
     assert result["envelope"] == {"elements": {"total": 150, "returned": 100, "truncated": True}}
     assert "next_page_token" in result
     assert "set" not in result
-    assert set_store._sets == {}
+    assert len(set_store) == 0
     assert all(command != "API.GetTypesOfElements" for command, _ in fake_archicad.calls)
 
 
@@ -110,16 +115,17 @@ async def test_filter_elements_result_becomes_a_set(fake_archicad, set_store):
     assert stored.origin["command"] == "elements_filter_elements"
 
 
-def test_every_auto_set_command_reads_a_list_field_named_elements():
-    assert set(AUTO_SET_FIELDS) == {
-        "elements_get_all_elements",
-        "elements_get_elements_by_type",
-        "elements_get_elements_by_classification",
-        "elements_get_selected_elements",
-        "elements_filter_elements",
-        "issues_get_elements_attached_to_issue",
-    }
-    assert set(AUTO_SET_FIELDS.values()) == {"elements"}
+def test_auto_set_table_matches_the_registered_read_commands(fake_archicad):
+    assert AUTO_SET_FIELDS
+    for name, field in AUTO_SET_FIELDS.items():
+        assert name in TOOL_DISCOVERY_CATALOG, f"{name} is not a registered command"
+        assert TOOL_DISCOVERY_CATALOG[name]["kind"] == "read", f"{name} is not a read command"
+        pagination_field = TOOL_CALLABLE_REGISTRY[name].pagination_field
+        assert pagination_field in (None, field), f"{name} paginates '{pagination_field}', the table says '{field}'"
+
+
+def test_element_sets_are_on_by_default():
+    assert PRODUCTION_DEFAULT is True
 
 
 @pytest.mark.asyncio
@@ -182,7 +188,7 @@ async def test_unknown_project_creates_no_set_and_keeps_the_paged_result(fake_ar
     assert "next_page_token" in result
     assert "set" not in result
     assert result["setError"] == "no answer; no set was created"
-    assert set_store._sets == {}
+    assert len(set_store) == 0
 
 
 @pytest.mark.asyncio
@@ -195,3 +201,39 @@ async def test_empty_result_makes_an_empty_set_without_asking_for_types(fake_arc
     assert result["set"]["count"] == 0
     assert result["set"]["byType"] == {}
     assert all(command != "API.GetTypesOfElements" for command, _ in fake_archicad.calls)
+
+
+@pytest.mark.asyncio
+async def test_failing_types_call_fails_the_read_and_leaves_no_set(fake_archicad, set_store):
+    fake_archicad.on_tapir_command("GetAllElements", {"elements": _elements(30)})  # no types response: the call raises
+
+    with pytest.raises(Exception, match="GetTypesOfElements"):
+        await archicad_read_tool("elements_get_all_elements", {"port": PORT, "params": {}})
+
+    assert len(set_store) == 0
+
+
+@pytest.mark.asyncio
+async def test_threshold_counts_unique_elements(fake_archicad):
+    unique = _elements(INLINE_THRESHOLD)
+    fake_archicad.on_tapir_command("GetAllElements", {"elements": [*unique, unique[0]]})
+    fake_archicad.on_tapir_command("API.GetTypesOfElements", _types(INLINE_THRESHOLD))
+
+    result = await archicad_read_tool("elements_get_all_elements", {"port": PORT, "params": {}})
+
+    assert result["elements"] == unique
+    assert result["set"]["count"] == INLINE_THRESHOLD
+
+
+@pytest.mark.asyncio
+async def test_duplicates_above_the_threshold_are_counted_once(fake_archicad):
+    unique = _elements(INLINE_THRESHOLD + 1)
+    fake_archicad.on_tapir_command("GetAllElements", {"elements": [*unique, *unique]})
+    fake_archicad.on_tapir_command("API.GetTypesOfElements", _types(INLINE_THRESHOLD + 1))
+
+    result = await archicad_read_tool("elements_get_all_elements", {"port": PORT, "params": {}})
+
+    assert "elements" not in result
+    assert result["set"]["count"] == INLINE_THRESHOLD + 1
+    types_calls = [parameters for command, parameters in fake_archicad.calls if command == "API.GetTypesOfElements"]
+    assert len(types_calls[0]["elements"]) == INLINE_THRESHOLD + 1

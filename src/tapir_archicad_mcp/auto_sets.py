@@ -32,12 +32,16 @@ UNTITLED_WARNING = (
 
 def summarize_set(conn_header: ConnHeader, element_set: ElementSet, port: int, warnings: Sequence[str] = ()) -> dict:
     """Count, element types, and ready-to-use follow-up calls for a set. Blocking: call it in a thread."""
+    return _summary(element_set, port, warnings, _count_types(conn_header, element_set.guids))
+
+
+def _summary(element_set: ElementSet, port: int, warnings: Sequence[str], by_type: dict[str, int]) -> dict:
     warnings = [*warnings, UNTITLED_WARNING] if element_set.project == UNTITLED else list(warnings)
     prefix = f"archicad_read_tool(name='%s', arguments={{'port': {port}, 'params': {{'set': '{element_set.id}', %s}}}})"
     return {
         "set": element_set.id,
         "count": len(element_set.guids),
-        "byType": _count_types(conn_header, element_set.guids),
+        "byType": by_type,
         "createdAt": element_set.created_at.isoformat(),
         "warnings": warnings,
         "next": {
@@ -64,6 +68,7 @@ def _count_types(conn_header: ConnHeader, guids: Sequence[str]) -> dict[str, int
 def apply_auto_set(name: str, result: dict, conn_header: ConnHeader, port: int, parameters: str) -> dict:
     """Store the result's element list as a set and add its summary under "set".
 
+    The threshold and the "count" both use the de-duplicated elements; a list that stays is returned de-duplicated.
     A list longer than INLINE_THRESHOLD is removed from the result. When the project identity cannot be read,
     no set is made and the result is returned with a "setError". Blocking: call it in a thread.
     """
@@ -72,9 +77,11 @@ def apply_auto_set(name: str, result: dict, conn_header: ConnHeader, port: int, 
     if project == UNKNOWN:
         return {**result, "setError": f"{reason}; no set was created"}
     origin = {"command": name, "parametersHash": hashlib.sha256(parameters.encode()).hexdigest()[:16]}
-    guids = [item["elementId"]["guid"] for item in result[field]]
+    guids = list(dict.fromkeys(item["elementId"]["guid"] for item in result[field]))
+    # Ask Archicad before storing, so a failing request leaves no set behind.
+    by_type = _count_types(conn_header, guids)
     element_set = set_store_instance.get().create(port, project, guids, origin)
-    summary = summarize_set(conn_header, element_set, port)
-    if len(result[field]) <= INLINE_THRESHOLD:
-        return {**result, "set": summary}
+    summary = _summary(element_set, port, (), by_type)
+    if len(guids) <= INLINE_THRESHOLD:
+        return {**result, field: [{"elementId": {"guid": guid}} for guid in guids], "set": summary}
     return {**{key: value for key, value in result.items() if key != field}, "set": summary}

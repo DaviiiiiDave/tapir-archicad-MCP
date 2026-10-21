@@ -30,6 +30,14 @@ def test_create_deduplicates_in_order():
     assert store.get(element_set.id, PORT, PROJECT) is element_set
 
 
+def test_len_counts_stored_sets():
+    store = make_store(capacity=2)
+    assert len(store) == 0
+    for guid in "abc":
+        store.create(PORT, PROJECT, [guid], {})
+    assert len(store) == 2
+
+
 def test_lru_evicts_least_recently_used():
     store = make_store(capacity=2)
     s1 = store.create(PORT, PROJECT, ["a"], {})
