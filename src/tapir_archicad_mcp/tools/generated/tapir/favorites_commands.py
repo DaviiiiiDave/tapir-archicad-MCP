@@ -165,7 +165,7 @@ register_tool_for_dispatch(
     title="ImportFavorites",
     description="Import Favorites from a .prefs file or folder into the current project.",
     params_model=ImportFavoritesParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 

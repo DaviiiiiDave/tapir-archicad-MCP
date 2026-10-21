@@ -128,7 +128,7 @@ register_tool_for_dispatch(
         "exist. Returns the systems and items it created and removed."
     ),
     params_model=ImportClassificationsXmlParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 

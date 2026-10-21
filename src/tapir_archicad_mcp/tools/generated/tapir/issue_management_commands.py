@@ -62,7 +62,7 @@ register_tool_for_dispatch(
     title="CreateIssue",
     description="Creates a new issue.",
     params_model=CreateIssueParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 
@@ -186,5 +186,5 @@ register_tool_for_dispatch(
     title="ImportIssuesFromBCF",
     description="Imports issues from the specified BCF file.",
     params_model=ImportIssuesFromBCFParameters,
-    kind="write",
+    kind="irreversible",
 )

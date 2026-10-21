@@ -167,7 +167,7 @@ register_tool_for_dispatch(
         "property definitions it created and removed."
     ),
     params_model=ImportPropertiesXmlParameters,
-    kind="write",
+    kind="irreversible",
 )
 
 

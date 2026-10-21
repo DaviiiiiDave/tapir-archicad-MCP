@@ -150,5 +150,5 @@ register_tool_for_dispatch(
         "Set the libraries before opening a file that needs them and the missing-library dialog does not appear."
     ),
     params_model=SetLibrariesParameters,
-    kind="write",
+    kind="irreversible",
 )
