@@ -185,6 +185,7 @@ current: 3
 - **Untitled sets.** A set bound to `"untitled"` is refused in write and irreversible commands. Reads keep working and carry the untitled warning.
 - **Empty sets.** A reference to an empty set is refused before anything reaches Archicad.
 - **Change log.** For a write with a set reference, `argumentsPreview` shows `{"set": <id>}` in place of the expanded list. The `sets` entry records, per field, the set id, its count and the full GUID list.
+- **Drafting element types** (live smoke on Archicad 29, approved by Dave). The official `API.GetTypesOfElements` answers "Element not supported" (code 7203) for every drafting element: lines, text, labels, hatches, cameras, pictures. Elements it rejects get their type from one Tapir `GetDetailsOfElements` call with `fields: ["type"]`. Only an element Tapir also cannot read counts as `"(unreadable)"`. A failing Tapir call, or one with a different entry count, raises the type-count `ToolError`. Task 7's `type` column uses the same lookup.
 - **Archicad version.** `API.GetTypesOfElements` exists from Archicad 26 on (Graphisoft, Archicad 26 new features). A failing type count raises a `ToolError` that names `--element-sets off`. The README says the summaries need Archicad 26 or later.
 
 ## Stage 4: Typed values and criteria (spec step 6)

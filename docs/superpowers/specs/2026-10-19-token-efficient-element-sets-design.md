@@ -121,12 +121,12 @@ Archicad 30 ships a native MCP server with element sets (`successful_element_set
   "next": ["sets_rows(set='set:ab12', columns=[...])", "sets_aggregate(set='set:ab12', groupBy=...)"]
 }
 ```
-`byType` comes from the official `GetTypesOfElements`. `next` gives concrete call templates, because models use a summary and ignore drill-down tools unless the response shows them how.
+`byType` comes from the official `GetTypesOfElements`. That command types construction elements only (its `ElementType` covers 20 types, Wall to Opening) and answers "Element not supported" for drafting elements such as lines, text, labels and hatches. Those elements get their type from one Tapir `GetDetailsOfElements` call with `fields: ["type"]`, covering only the rejected ones (amended 2026-10-21 after the Stage 3 live smoke, approved by Dave). `next` gives concrete call templates, because models use a summary and ignore drill-down tools unless the response shows them how.
 
 ### 5.5 Reading values: columns, rows, aggregates, export
 
 **Columns.** A column is a property (by property GUID) or one of a few element fields:
-- `type`, from the official `GetTypesOfElements`.
+- `type`, from the official `GetTypesOfElements`, with the same Tapir fallback as `byType` for drafting elements.
 - `layer` (layer attribute GUID plus its name as shown in the project) and `story` (story index plus its name), from Tapir `GetDetailsOfElements` with a field mask (`layerIndex`, `floorIndex`), resolved through the attribute and story lists.
 - `isEditable`, derived as membership in the result of `FilterElements` with the `IsEditable` flag. `GetDetailsOfElements` has no such field.
 
