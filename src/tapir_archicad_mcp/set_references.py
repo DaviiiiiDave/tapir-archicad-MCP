@@ -1,19 +1,21 @@
 """Set references ({"set": "set:ab12cd34"}) in element-list parameters, expanded to element lists before validation."""
 
 import copy
+import re
 from collections.abc import Callable
 from typing import Any
 
 from mcp.server.mcpserver.exceptions import ToolError
 from multiconn_archicad import ConnHeader
 
+import tapir_archicad_mcp.app as app_settings
 from tapir_archicad_mcp.context import set_store_instance
-from tapir_archicad_mcp.element_sets import ElementSet
-from tapir_archicad_mcp.project_identity import UNKNOWN, read_project_fingerprint
+from tapir_archicad_mcp.element_sets import ElementSet, UnknownSetError
+from tapir_archicad_mcp.project_identity import UNKNOWN, UNTITLED, read_project_fingerprint
 
 # Every top-level `params` field typed list[ElementIdArrayItem] (items exactly {"elementId": {"guid"}}), per command.
 # Element pairs (elementPropertyValues, elementClassifications, ...) are deliberately not in it.
-# A test compares this table with the registered params models, so a Tapir bump shows up as a failing diff.
+# A test compares this table with the registered params models, so a Tapir bump shows up as a failing test.
 SET_EXPANSION_FIELDS: dict[str, tuple[str, ...]] = {
     "classifications_get_classifications_of_elements": ("elements",),
     "components_get_components_of_elements": ("elements",),
@@ -58,18 +60,24 @@ SET_EXPANSION_FIELDS: dict[str, tuple[str, ...]] = {
     "teamwork_reserve_elements": ("elements",),
 }
 
+SET_ID_PATTERN = "^set:[0-9a-f]{8}$"
+
 SET_REFERENCE_SCHEMA: dict[str, Any] = {
     "type": "object",
-    "properties": {"set": {"type": "string", "pattern": "^set:[0-9a-f]{8}$"}},
+    "properties": {"set": {"type": "string", "pattern": SET_ID_PATTERN}},
     "required": ["set"],
     "additionalProperties": False,
     "examples": [{"set": "set:ab12cd34"}],
 }
 
 
+def _is_set_id(value: Any) -> bool:
+    return isinstance(value, str) and re.fullmatch(SET_ID_PATTERN, value) is not None
+
+
 def is_set_reference(value: Any) -> bool:
-    """True for a dict whose only key is "set" and whose value is a string."""
-    return isinstance(value, dict) and list(value) == ["set"] and isinstance(value["set"], str)
+    """True for a dict whose only key is "set" and whose value is a well-formed set id."""
+    return isinstance(value, dict) and list(value) == ["set"] and _is_set_id(value["set"])
 
 
 def mentions_set_reference(value: Any) -> bool:
@@ -77,15 +85,38 @@ def mentions_set_reference(value: Any) -> bool:
     return isinstance(value, dict) and "set" in value
 
 
-def resolve_set(conn_header: ConnHeader, port: int, set_id: str) -> ElementSet:
-    """Look the set up for the project open on the port right now. Blocking: call it in a thread."""
+def resolve_set(conn_header: ConnHeader, port: int, set_id: str, *, for_write: bool = False) -> ElementSet:
+    """Look the set up for the project open on the port right now. Blocking: call it in a thread.
+
+    The set is refused when it is empty, or when it comes from an untitled project and `for_write` is set.
+    """
+    if not _is_set_id(set_id):
+        raise ToolError("Malformed set id. Use the id from the 'set' summary of a read result, e.g. set:ab12cd34.")
+    store = set_store_instance.get()
+    try:
+        store.lookup(set_id, port)
+    except UnknownSetError as e:
+        if app_settings.element_sets_enabled:
+            raise
+        raise UnknownSetError(
+            f"{e} Automatic sets are off on this server (--element-sets off), so read results create no sets."
+        ) from None
     project, reason = read_project_fingerprint(conn_header)
     if project == UNKNOWN:
         raise ToolError(
             f"The project identity on port {port} could not be read ({reason}), so set '{set_id}' cannot be "
             f"checked against the open project. Try again once Archicad responds."
         )
-    return set_store_instance.get().get(set_id, port, project)
+    element_set = store.get(set_id, port, project)
+    if not element_set.guids:
+        raise ToolError(f"Set {set_id} is empty; pass an explicit element list or re-run the read command.")
+    if for_write and element_set.project == UNTITLED:
+        raise ToolError(
+            f"Set '{set_id}' comes from an unsaved project, and unsaved projects cannot be told apart, so its "
+            f"GUIDs may belong to another project. Writes with it are refused: save the project and re-run the "
+            f"read command that produced it, or pass an explicit element list."
+        )
+    return element_set
 
 
 def expand_set_references(
@@ -105,15 +136,20 @@ def expand_set_references(
                 continue
             if not is_set_reference(value):
                 raise ToolError(
-                    f'params.{field}: a set reference must be exactly {{"set": "set:xxxxxxxx"}} with no other keys, '
-                    f"got {value!r}."
+                    f'params.{field}: a set reference must be exactly {{"set": "<set id from a read result>"}}: '
+                    f"a string id (like set:ab12cd34) and no other keys. "
+                    f"Got keys: {', '.join(sorted(map(str, value)))}."
                 )
             expanded_params[field] = [{"elementId": {"guid": guid}} for guid in resolve(value["set"]).guids]
             sets[f"params.{field}"] = value["set"]
         elif is_set_reference(value):
-            accepted = ", ".join(f"params.{f}" for f in allowed) or "none"
+            if not allowed:
+                raise ToolError(
+                    f"'{name}' accepts no set references; pass an explicit list in params.{field}."
+                )
+            accepted = ", ".join(f"params.{f}" for f in allowed)
             raise ToolError(
-                f"'{name}' does not accept a set reference in params.{field}. "
+                f"'{name}' does not accept a set reference in params.{field}. Pass an explicit list there. "
                 f"Fields that accept set references: {accepted}."
             )
     return {**arguments, "params": expanded_params}, sets

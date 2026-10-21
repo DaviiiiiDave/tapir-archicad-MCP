@@ -291,7 +291,7 @@ async def _run_command(name: str, arguments: dict, *, read_only: bool) -> dict:
     tool_entry = get_tool_entry(name)
     if read_only and tool_entry.kind != "read":
         raise ToolError(f"'{name}' changes the project. Use archicad_call_tool for commands that are not kind='read'.")
-    expanded_arguments, sets = await _expand_set_references(name, arguments)
+    expanded_arguments, sets = await _expand_set_references(name, arguments, for_write=tool_entry.kind != "read")
     try:
         validated_arguments = tool_entry.arguments_model.model_validate(expanded_arguments)
     except ValidationError as e:
@@ -317,8 +317,12 @@ async def _run_command(name: str, arguments: dict, *, read_only: bool) -> dict:
     return store.initial_result(job)
 
 
-async def _expand_set_references(name: str, arguments: dict) -> tuple[dict, dict[str, str]]:
-    """Replace {"set": ...} references in top-level params fields. Anything else is left for validation to report."""
+async def _expand_set_references(name: str, arguments: dict, *, for_write: bool) -> tuple[dict, dict[str, str]]:
+    """Replace {"set": ...} references in top-level params fields.
+
+    Arguments without any set reference (including a missing or non-int port, or non-dict params) pass through
+    unchanged for validation to report; unusable references raise ToolError here.
+    """
     port = arguments.get("port")
     params = arguments.get("params")
     if (
@@ -330,7 +334,10 @@ async def _expand_set_references(name: str, arguments: dict) -> tuple[dict, dict
         return arguments, {}
     # Reading the header and the project identity can block.
     return await asyncio.to_thread(
-        expand_set_references, name, arguments, lambda set_id: resolve_set(_get_header(port), port, set_id)
+        expand_set_references,
+        name,
+        arguments,
+        lambda set_id: resolve_set(_get_header(port), port, set_id, for_write=for_write),
     )
 
 

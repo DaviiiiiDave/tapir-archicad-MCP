@@ -1,4 +1,4 @@
-"""In-memory snapshots of element GUIDs, so element lists never have to travel through the model."""
+"""In-memory snapshots of element GUIDs, so large element lists need not travel through the model."""
 
 import secrets
 import threading
@@ -8,6 +8,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from mcp.server.mcpserver.exceptions import ToolError
+
+
+class UnknownSetError(ToolError):
+    """The set id is not in the store."""
 
 
 @dataclass(frozen=True)
@@ -55,25 +59,37 @@ class SetStore:
         with self._lock:
             return len(self._sets)
 
+    def lookup(self, set_id: str, port: int) -> ElementSet:
+        """Return the set if it exists on this port, without checking the project. Raises ToolError otherwise."""
+        with self._lock:
+            return self._lookup(set_id, port)
+
     def get(self, set_id: str, port: int, project: str) -> ElementSet:
         """Return the set and mark it as recently used. Raises ToolError if it is unknown or bound elsewhere."""
         with self._lock:
-            element_set = self._sets.get(set_id)
-            if element_set is None:
-                raise ToolError(
-                    f"Unknown set '{set_id}'. Sets are lost when the server restarts and the least recently used "
-                    f"are dropped when the store is full; create it again from its query or definition."
-                )
-            if element_set.port != port:
-                raise ToolError(
-                    f"Set '{set_id}' was created on Archicad port {element_set.port}, not port {port}. "
-                    f"Use port {element_set.port}, or create the set again on port {port}."
-                )
+            element_set = self._lookup(set_id, port)
             if element_set.project != project:
                 raise ToolError(
                     f"Set '{set_id}' was created for project '{element_set.project}', but port {port} now has "
                     f"'{project}' open (for example after Save as or opening another project). "
-                    f"Element GUIDs are not valid across projects; create the set again."
+                    f"Element GUIDs are not valid across projects; re-run the read command that produced the set "
+                    f"on the open project to get a new set id."
                 )
             self._sets.move_to_end(set_id)
             return element_set
+
+    def _lookup(self, set_id: str, port: int) -> ElementSet:
+        element_set = self._sets.get(set_id)
+        if element_set is None:
+            raise UnknownSetError(
+                f"Unknown set '{set_id}'. Sets live in server memory only: they are lost when the server restarts, "
+                f"and the least recently used are dropped when the store is full. "
+                f"Re-run the read command that produced it (for example elements_get_elements_by_type) "
+                f"to get a new set id."
+            )
+        if element_set.port != port:
+            raise ToolError(
+                f"Set '{set_id}' was created on Archicad port {element_set.port}, not port {port}. "
+                f"Use port {element_set.port}, or re-run the read command on port {port} to get a new set there."
+            )
+        return element_set

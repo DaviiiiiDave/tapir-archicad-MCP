@@ -55,7 +55,8 @@ def test_unknown_set_explains_restart():
     with pytest.raises(ToolError) as error:
         store.get("set:nope", PORT, PROJECT)
     assert "lost when the server restarts" in str(error.value)
-    assert "create it again from its query or definition" in str(error.value)
+    assert "Re-run the read command that produced it (for example elements_get_elements_by_type)" in str(error.value)
+    assert "to get a new set id" in str(error.value)
 
 
 def test_get_refuses_other_port():
@@ -65,6 +66,7 @@ def test_get_refuses_other_port():
         store.get(element_set.id, 19724, PROJECT)
     assert str(PORT) in str(error.value)
     assert "19724" in str(error.value)
+    assert "re-run the read command on port 19724 to get a new set there" in str(error.value)
 
 
 def test_get_refuses_changed_project():
@@ -76,3 +78,14 @@ def test_get_refuses_changed_project():
     assert "/a.pln" in message
     assert "/b.pln" in message
     assert "Save as" in message
+    assert "re-run the read command that produced the set on the open project to get a new set id" in message
+
+
+def test_lookup_checks_existence_and_port_without_a_project():
+    store = make_store()
+    element_set = store.create(PORT, PROJECT, ["a"], {})
+    assert store.lookup(element_set.id, PORT) is element_set
+    with pytest.raises(ToolError, match="Unknown set"):
+        store.lookup("set:nope", PORT)
+    with pytest.raises(ToolError, match="not port 19724"):
+        store.lookup(element_set.id, 19724)
