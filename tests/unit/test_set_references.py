@@ -2,13 +2,17 @@ import json
 import types
 import typing
 import uuid
+from unittest.mock import Mock
 
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 from multiconn_archicad import APIResponseError, SoloProjectID, UntitledProjectID
+from multiconn_archicad.errors import CommandTimeoutError
 from pydantic import BaseModel
 
+from tapir_archicad_mcp.app import app_lifespan, mcp
 from tapir_archicad_mcp.context import set_store_instance
+from tapir_archicad_mcp.element_sets import SetStore
 from tapir_archicad_mcp.set_references import (
     SET_EXPANSION_FIELDS,
     expand_set_references,
@@ -95,14 +99,13 @@ def test_resolve_set_refuses_a_malformed_id_without_echoing_it(fake_archicad):
 def test_expansion_does_not_mutate_its_input():
     guids = _guids(2)
     arguments = {"port": PORT, "params": {"elements": {"set": "set:00000001"}}}
+    element_set = types.SimpleNamespace(id="set:00000001", guids=tuple(guids))
 
-    expanded, sets = expand_set_references(
-        "elements_highlight_elements", arguments, lambda set_id: types.SimpleNamespace(guids=tuple(guids))
-    )
+    expanded, sets = expand_set_references("elements_highlight_elements", arguments, lambda set_id: element_set)
 
     assert arguments == {"port": PORT, "params": {"elements": {"set": "set:00000001"}}}
     assert expanded["params"]["elements"] == [{"elementId": {"guid": g}} for g in guids]
-    assert sets == {"params.elements": "set:00000001"}
+    assert sets == {"params.elements": element_set}
 
 
 @pytest.mark.asyncio
@@ -226,16 +229,139 @@ async def test_set_reference_with_unreadable_project_says_so(fake_archicad):
     assert fake_archicad.calls == []
 
 
+def _log_entry(change_log) -> dict:
+    (path,) = change_log.directory.glob("changes-*.jsonl")
+    (line,) = path.read_text(encoding="utf-8").splitlines()
+    return json.loads(line)
+
+
 @pytest.mark.asyncio
-async def test_change_log_records_the_set_id(fake_archicad, change_log):
-    set_id = _make_set(_guids(2))
+async def test_change_log_records_the_set_with_its_elements(fake_archicad, change_log):
+    guids = _guids(3)
+    set_id = _make_set(guids)
     fake_archicad.on_tapir_command("LockElements", {})
 
     await archicad_call_tool("elements_lock_elements", {"port": PORT, "params": {"elements": {"set": set_id}}})
 
-    (path,) = change_log.directory.glob("changes-*.jsonl")
-    (line,) = path.read_text(encoding="utf-8").splitlines()
-    assert json.loads(line)["sets"] == {"params.elements": set_id}
+    entry = _log_entry(change_log)
+    assert entry["sets"] == {"params.elements": {"set": set_id, "count": 3, "elements": guids}}
+    assert json.loads(entry["argumentsPreview"]) == {"port": PORT, "params": {"elements": {"set": set_id}}}
+    assert entry["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_failed_set_write_is_logged_with_the_set(fake_archicad, change_log):
+    guids = _guids(2)
+    set_id = _make_set(guids)  # no LockElements response: the fake raises
+
+    with pytest.raises(Exception):
+        await archicad_call_tool("elements_lock_elements", {"port": PORT, "params": {"elements": {"set": set_id}}})
+
+    entry = _log_entry(change_log)
+    assert entry["status"] == "failed"
+    assert entry["sets"] == {"params.elements": {"set": set_id, "count": 2, "elements": guids}}
+    assert json.loads(entry["argumentsPreview"])["params"]["elements"] == {"set": set_id}
+
+
+@pytest.mark.asyncio
+async def test_set_write_with_unknown_outcome_is_logged_with_the_set(fake_archicad, change_log):
+    guids = _guids(2)
+    set_id = _make_set(guids)
+    fake_archicad.core.post_tapir_command = Mock(side_effect=CommandTimeoutError("timed out"))
+
+    with pytest.raises(Exception):
+        await archicad_call_tool("elements_lock_elements", {"port": PORT, "params": {"elements": {"set": set_id}}})
+
+    entry = _log_entry(change_log)
+    assert entry["status"] == "unknown"
+    assert entry["sets"] == {"params.elements": {"set": set_id, "count": 2, "elements": guids}}
+    assert json.loads(entry["argumentsPreview"])["params"]["elements"] == {"set": set_id}
+
+
+@pytest.mark.asyncio
+async def test_preview_keeps_the_parameters_that_follow_a_set(fake_archicad, change_log):
+    set_id = _make_set(_guids(10))
+    fake_archicad.on_tapir_command("AttachElementsToIssue", {})
+
+    await archicad_call_tool(
+        "issues_attach_elements_to_issue",
+        {
+            "port": PORT,
+            "confirm": True,
+            "params": {"issueId": {"guid": _guids(1)[0]}, "elements": {"set": set_id}, "type": "Highlight"},
+        },
+    )
+
+    preview = json.loads(_log_entry(change_log)["argumentsPreview"])
+    assert preview["params"]["elements"] == {"set": set_id}
+    assert preview["params"]["type"] == "Highlight"
+
+
+@pytest.mark.asyncio
+async def test_two_set_fields_are_both_expanded(fake_archicad):
+    first, second = _guids(2), _guids(3)
+    fake_archicad.on_tapir_command("GetCollisions", {"collisions": []})
+
+    await archicad_read_tool(
+        "elements_get_collisions",
+        {
+            "port": PORT,
+            "params": {"elementsGroup1": {"set": _make_set(first)}, "elementsGroup2": {"set": _make_set(second)}},
+        },
+    )
+
+    ((_, parameters),) = fake_archicad.calls
+    assert parameters["elementsGroup1"] == [{"elementId": {"guid": g}} for g in first]
+    assert parameters["elementsGroup2"] == [{"elementId": {"guid": g}} for g in second]
+
+
+@pytest.mark.asyncio
+async def test_delete_with_a_set_needs_confirm(fake_archicad, change_log):
+    set_id = _make_set(_guids(2))
+
+    with pytest.raises(ToolError, match="irreversible"):
+        await archicad_call_tool("elements_delete_elements", {"port": PORT, "params": {"elements": {"set": set_id}}})
+
+    assert fake_archicad.calls == []
+    assert list(change_log.directory.glob("changes-*.jsonl")) == []
+
+
+@pytest.mark.asyncio
+async def test_confirmed_delete_runs_with_the_expanded_list(fake_archicad, change_log):
+    guids = _guids(2)
+    set_id = _make_set(guids)
+    fake_archicad.on_tapir_command("DeleteElements", {})
+
+    await archicad_call_tool(
+        "elements_delete_elements", {"port": PORT, "confirm": True, "params": {"elements": {"set": set_id}}}
+    )
+
+    ((command, parameters),) = fake_archicad.calls
+    assert command == "DeleteElements"
+    assert parameters["elements"] == [{"elementId": {"guid": g}} for g in guids]
+    assert _log_entry(change_log)["sets"]["params.elements"]["elements"] == guids
+
+
+@pytest.mark.asyncio
+async def test_read_tool_refuses_a_write_command_with_a_set_reference(fake_archicad):
+    set_id = _make_set(_guids(2))
+
+    with pytest.raises(ToolError, match="changes the project"):
+        await archicad_read_tool("elements_lock_elements", {"port": PORT, "params": {"elements": {"set": set_id}}})
+
+    assert fake_archicad.calls == []
+
+
+@pytest.mark.asyncio
+async def test_app_lifespan_installs_a_set_store(monkeypatch):
+    monkeypatch.setattr("tapir_archicad_mcp.app.MultiConn", Mock())
+    set_store_instance.clear()
+
+    async with app_lifespan(mcp):
+        assert isinstance(set_store_instance.get(), SetStore)
+
+    with pytest.raises(LookupError):
+        set_store_instance.get()
 
 
 @pytest.mark.asyncio

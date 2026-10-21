@@ -121,15 +121,15 @@ def resolve_set(conn_header: ConnHeader, port: int, set_id: str, *, for_write: b
 
 def expand_set_references(
     name: str, arguments: dict, resolve: Callable[[str], ElementSet]
-) -> tuple[dict, dict[str, str]]:
+) -> tuple[dict, dict[str, ElementSet]]:
     """Replace set references in top-level `params` fields with element lists.
 
-    Returns new arguments and the expanded field paths mapped to set ids; the input is never mutated.
+    Returns new arguments and the expanded field paths mapped to their sets; the input is never mutated.
     """
     params = arguments["params"]
     allowed = SET_EXPANSION_FIELDS.get(name, ())
     expanded_params = dict(params)
-    sets: dict[str, str] = {}
+    sets: dict[str, ElementSet] = {}
     for field, value in params.items():
         if field in allowed:
             if not mentions_set_reference(value):
@@ -140,8 +140,9 @@ def expand_set_references(
                     f"a string id (like set:ab12cd34) and no other keys. "
                     f"Got keys: {', '.join(sorted(map(str, value)))}."
                 )
-            expanded_params[field] = [{"elementId": {"guid": guid}} for guid in resolve(value["set"]).guids]
-            sets[f"params.{field}"] = value["set"]
+            element_set = resolve(value["set"])
+            expanded_params[field] = [{"elementId": {"guid": guid}} for guid in element_set.guids]
+            sets[f"params.{field}"] = element_set
         elif is_set_reference(value):
             if not allowed:
                 raise ToolError(

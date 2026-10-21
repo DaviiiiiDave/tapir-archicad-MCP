@@ -22,6 +22,7 @@ import tapir_archicad_mcp.app as app_settings
 from tapir_archicad_mcp.app import mcp
 from tapir_archicad_mcp.auto_sets import AUTO_SET_FIELDS, apply_auto_set
 from tapir_archicad_mcp.context import change_log_instance, job_store_instance, multi_conn_instance
+from tapir_archicad_mcp.element_sets import ElementSet
 from tapir_archicad_mcp.images import build_image_result, extract_images, to_tool_result
 from tapir_archicad_mcp.jobs import JobStore, arguments_preview, outcome_may_be_unknown, upstream_error
 from tapir_archicad_mcp.outcome import DEFAULT_RESULT_FIELDS, RESULT_LIST_FIELDS, summarize_execution_results
@@ -317,7 +318,7 @@ async def _run_command(name: str, arguments: dict, *, read_only: bool) -> dict:
     return store.initial_result(job)
 
 
-async def _expand_set_references(name: str, arguments: dict, *, for_write: bool) -> tuple[dict, dict[str, str]]:
+async def _expand_set_references(name: str, arguments: dict, *, for_write: bool) -> tuple[dict, dict[str, ElementSet]]:
     """Replace {"set": ...} references in top-level params fields.
 
     Arguments without any set reference (including a missing or non-int port, or non-dict params) pass through
@@ -351,7 +352,7 @@ def _read_cached_page(name: str, tool_entry: ToolRegistryEntry, arguments: Any, 
 
 
 def _execute_tool(
-    name: str, tool_entry: ToolRegistryEntry, validated_arguments: Any, job_handle: str, sets: dict[str, str]
+    name: str, tool_entry: ToolRegistryEntry, validated_arguments: Any, job_handle: str, sets: dict[str, ElementSet]
 ) -> Any:
     port = validated_arguments.port
     conn_header = _get_header(port)
@@ -399,19 +400,21 @@ def _write_change_log(
     validated_arguments: Any,
     conn_header: ConnHeader,
     job_handle: str,
-    sets: dict[str, str],
+    sets: dict[str, ElementSet],
     result: dict | None,
     failure: Exception | None,
 ) -> Path:
     project, project_error = read_project_fingerprint(conn_header)
+    arguments = validated_arguments.model_dump(mode="json", by_alias=True, exclude_none=True)
+    for path, element_set in sets.items():
+        # The preview shows the set id, not thousands of GUIDs; the "sets" entry below has the elements.
+        arguments["params"][path.removeprefix("params.")] = {"set": element_set.id}
     entry = {
         "port": validated_arguments.port,
         "project": project,
         "command": name,
         "kind": tool_entry.kind,
-        "argumentsPreview": arguments_preview(
-            validated_arguments.model_dump(mode="json", by_alias=True, exclude_none=True)
-        ),
+        "argumentsPreview": arguments_preview(arguments),
         "status": _change_status(failure),
         "outcome": result.get("outcome") if result is not None else None,
         "error": str(failure) if failure is not None else None,
@@ -420,7 +423,10 @@ def _write_change_log(
     if project_error is not None:
         entry["projectError"] = project_error
     if sets:
-        entry["sets"] = sets
+        entry["sets"] = {
+            path: {"set": element_set.id, "count": len(element_set.guids), "elements": list(element_set.guids)}
+            for path, element_set in sets.items()
+        }
     return change_log_instance.get().record(entry)
 
 
@@ -436,7 +442,7 @@ def _record_change(
     validated_arguments: Any,
     conn_header: ConnHeader,
     job_handle: str,
-    sets: dict[str, str],
+    sets: dict[str, ElementSet],
     result: dict,
 ) -> dict:
     """Write the change-log line. Returns the result, with the log path (or the reason it failed) added."""
@@ -455,7 +461,7 @@ def _record_failed_change(
     validated_arguments: Any,
     conn_header: ConnHeader,
     job_handle: str,
-    sets: dict[str, str],
+    sets: dict[str, ElementSet],
     failure: Exception,
 ) -> None:
     """Write the change-log line for a failed command; if that fails too, say so in the error that is raised."""
