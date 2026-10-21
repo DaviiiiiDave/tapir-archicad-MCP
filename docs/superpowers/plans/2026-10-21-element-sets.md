@@ -4,7 +4,7 @@ stages:
   4: "Typed values and criteria semantics (Task 4-5, spec step 6)"
   5: "Property search, rows, aggregates, export (Task 6-8, spec step 7)"
   6: "Set definitions and set commands (Task 9-10, spec step 8)"
-current: 2
+current: 3
 ---
 
 # Element Sets Implementation Plan (Plan 3 of 4)
