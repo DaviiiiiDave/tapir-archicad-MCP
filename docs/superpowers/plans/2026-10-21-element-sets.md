@@ -9,6 +9,8 @@ current: 4
 
 # Element Sets Implementation Plan (Plan 3 of 4)
 
+> **Paused after Stage 4 (2026-10-22).** The maintainer asked us to hold off on element sets and queries, because they belong to his result-handle work. Stages 5 and 6 do not start until that is settled. The upstream work continues in Plan 5 (`2026-10-22-upstream-pr-series.md`).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Element data stays in the server. The model works with set references, counts, summaries and small samples. This covers spec steps 5 to 8: sets, typed values, rows/aggregates/export, and definitions with the fallback filter path.

@@ -6,7 +6,7 @@ stages:
   6: "PR 4: read/write classification and a read dispatcher"
   7: "PR 5: execution logging on the dispatch lifecycle"
   8: "PR 6: two-level command discovery"
-current: 3
+current: 4
 ---
 
 # Upstream PR Series Implementation Plan (Plan 5)
