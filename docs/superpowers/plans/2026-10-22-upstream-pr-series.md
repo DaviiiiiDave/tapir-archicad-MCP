@@ -4,7 +4,9 @@ stages:
   4: "PR 2: image responses, mappings in the generator config"
   5: "PR 3: pagination counts"
   6: "PR 4: read/write classification and a read dispatcher"
-current: 2
+  7: "PR 5: execution logging on the dispatch lifecycle"
+  8: "PR 6: two-level command discovery"
+current: 3
 ---
 
 # Upstream PR Series Implementation Plan (Plan 5)
@@ -27,12 +29,16 @@ current: 2
 - Spec `docs/superpowers/specs/2026-10-19-token-efficient-element-sets-design.md`, steps 1–4. It is the background, but where it and the maintainer disagree, his notes win.
 
 **Not in this plan:**
-- Element sets and queries: the maintainer asked us to hold off; Plan 3 is paused after Stage 4.
-- Confirm gate and the "irreversible" kind.
-- Outcome summaries, change log, command search: he wants a different direction and has not yet said whether he wants PRs from us.
+- Element sets and queries, and outcome summaries: the maintainer asked us to hold off on both, because they belong to his handle work. Plan 3 is paused after Stage 4.
+- The confirm gate and the "irreversible" kind.
+- The fork's keyword search and its JSONL change log. PRs 5 and 6 replace them in the direction he chose.
 - The benchmark harness.
 
-These items wait for his answer and get their own plan.
+**Dave's decisions, 2026-10-22:**
+- The group listing shows full descriptions.
+- The execution log keeps a bounded argument preview.
+- Logging comes before discovery.
+- Execution is native: the controller implements, then the PR pipeline runs.
 
 ## Global Constraints
 
@@ -193,4 +199,85 @@ These items wait for his answer and get their own plan.
   - `archicad_read_tool` with `elements_create_walls` is refused, and no element is created.
 - [ ] **Step 5: Commit** `feat: classify commands as read or write and add a read-only dispatcher`.
 
-**Stage 6 ends** when the PR is open upstream. After the last PR: update memory, and write the follow-up plan for the "different direction" items once the maintainer has answered.
+**Stage 6 ends** when the PR is open upstream.
+
+## Stage 7: PR 5 — execution logging
+
+### Task 5: One structured record per dispatch, optional JSONL file
+
+The maintainer asked for this direction: enrich the existing lifecycle logging, with a dedicated logger and an optional JSONL handler.
+
+**Files:**
+- Modify: `src/tapir_archicad_mcp/request_lifecycle.py`.
+  - `DispatchLifecycle` keeps its two INFO lines.
+  - On exit it also emits one record on the logger `tapir_archicad_mcp.execution`, with fields passed through `extra={"execution": {...}}`:
+    - `time` (ISO UTC), `request` (the request id or job handle), `tool`, `port`
+    - `kind`, when the registry entry has one (after PR 4)
+    - `durationMs`
+    - `outcome`: `ok` or `failed`
+    - `error`: the exception class name, failures only
+    - `argumentsPreview`: compact JSON of the validated arguments, cut at 300 characters with "…"
+  - `DispatchLifecycle(tool_name, port, job_handle=None, arguments=None)` gains the optional `arguments` dict, which the caller passes from `_execute_tool`.
+- Modify: `src/tapir_archicad_mcp/logging_config.py`. Add `JsonLinesFormatter`, which writes only `record.execution` as one JSON line. Add `add_execution_log(path: Path)`, which attaches a `FileHandler` with that formatter to the `tapir_archicad_mcp.execution` logger.
+- Modify: `src/tapir_archicad_mcp/server.py`. Add an `--execution-log PATH` flag and the env var `TAPIR_MCP_EXECUTION_LOG`. When set, the server calls `add_execution_log` once at startup. Without it, behaviour is unchanged: the records still reach the normal log through propagation.
+- Modify: `README.md`. Add one row to the configuration table.
+- Test: `tests/unit/test_request_lifecycle.py`, `tests/unit/test_server_args.py`.
+
+**Interfaces:**
+- Produces: the logger name `tapir_archicad_mcp.execution`, `JsonLinesFormatter`, `add_execution_log(path)`, and the record fields above.
+
+- [ ] **Step 1: Write the failing tests**
+  - `test_success_emits_one_execution_record`: check the fields and `outcome == "ok"`.
+  - `test_failure_records_the_error_class`: the record says `failed` with the error class, and the exception still propagates.
+  - `test_arguments_preview_is_bounded`: a 10,000-element argument gives a preview of at most 301 characters.
+  - `test_jsonl_handler_writes_one_line_per_dispatch`: run two dispatches into a tmp file and parse both lines.
+  - `test_execution_log_flag_and_env`.
+- [ ] **Step 2: Run them.** Expected: FAIL.
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run the full suite, then the live smoke.** One read and one refused write. The JSONL file holds exactly the dispatched call.
+- [ ] **Step 5: Commit** `feat: log one structured record per dispatch, optionally to a JSONL file`.
+
+**Stage 7 ends** when the PR is open upstream.
+
+## Stage 8: PR 6 — two-level command discovery
+
+### Task 6: Groups first, then the commands of chosen groups
+
+Measured on the fork catalog (308 commands):
+- the full listing is about 47,000 characters;
+- the largest group (`elements`, 73 commands) is about 11,000;
+- a typical task needs two or three groups.
+
+**Files:**
+- Modify: `scripts/generate_tools.py`.
+  - Emit `group="<short group>"` into each registration. The short group is the `group_mapping` value with a trailing `_` stripped, for example `solid_ops`.
+  - Write a generated module `src/tapir_archicad_mcp/tools/generated/groups.py` with `GROUP_SOURCES: dict[str, list[str]]`, which maps each short group to the sorted source category names mapped to it, across both API sources.
+- Modify: `src/tapir_archicad_mcp/tools/tool_registry.py`. `register_tool_for_dispatch(..., group: str)` stores the group in the catalog entry.
+- Modify: `src/tapir_archicad_mcp/tools/custom/functions.py` and `models.py`.
+  - `archicad_list_commands(groups: list[str] | None = None)`:
+    - **Without `groups`** it returns `[GroupOverview(name, commandCount, sources)]`.
+    - **With `groups`** it returns, for each requested group in request order, `[CommandOverview(name, description, kind)]` with full descriptions. `kind` is present once PR 4 has landed.
+    - **An unknown group name** raises `ToolError` that lists every valid group. No partial result.
+  - The description tells the model to list groups first, then request every group the task may need in one call.
+  - `archicad_get_command_schema` is unchanged.
+- Regenerate the wrappers. Only `group=` lines change, plus the new `groups.py`.
+- Test: `tests/unit/test_custom_tools.py`, `tests/unit/test_generator_config.py`.
+
+**Interfaces:**
+- Produces: `GroupOverview`, `archicad_list_commands(groups)`, `GROUP_SOURCES`, and the catalog field `group`.
+
+- [ ] **Step 1: Write the failing tests**
+  - `test_no_groups_lists_groups_with_counts`: the counts sum to the catalog size.
+  - `test_groups_return_their_commands_in_request_order`.
+  - `test_unknown_group_lists_valid_groups`.
+  - `test_every_registered_command_has_a_group`.
+  - `test_group_listing_is_much_smaller_than_the_catalog`: `elements` plus `properties` come to less than half the full listing's length.
+- [ ] **Step 2: Run them.** Expected: FAIL.
+- [ ] **Step 3: Implement, then regenerate.**
+- [ ] **Step 4: Run the full suite, then the live smoke.**
+  - List the groups.
+  - Request `["elements"]`.
+  - Run one listed command through `archicad_read_tool`.
+- [ ] **Step 5: Commit** `feat: two-level command discovery, groups first`.
+
+**Stage 8 ends** when the PR is open upstream. After the last PR, update memory.
