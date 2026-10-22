@@ -1,0 +1,757 @@
+{
+ "elements": [
+  "C1BA0CBE-0E57-498F-B6BE-8DCF0CD00D48",
+  "EFC5F5F1-0841-AB48-B94B-E0DBE0473CBB",
+  "00000000-0000-0000-0000-000000000001"
+ ],
+ "definitions": {
+  "propertyDefinitions": [
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "C1C47616-2BDD-49BF-92FB-CAC1206BF171"
+     },
+     "type": "length"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "41D36190-E3B6-4504-BF4F-1B7EBD02CBA2"
+     },
+     "type": "length"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "30B6B10B-B0ED-46EA-8BA0-04230BF038D0"
+     },
+     "type": "volume"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "399CBEAE-722D-4C13-82F1-03EB504A5D42"
+     },
+     "type": "volume"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "2FFB9195-3531-4299-8B35-F81EEDDF2A67"
+     },
+     "type": "singleEnum",
+     "possibleEnumValues": [
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "nonLocalizedValue",
+         "nonLocalizedValue": "Straight"
+        },
+        "displayValue": "gerade",
+        "nonLocalizedValue": "Straight"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "nonLocalizedValue",
+         "nonLocalizedValue": "Slanted"
+        },
+        "displayValue": "geneigt",
+        "nonLocalizedValue": "Slanted"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "nonLocalizedValue",
+         "nonLocalizedValue": "Double Slanted"
+        },
+        "displayValue": "doppelt geneigt",
+        "nonLocalizedValue": "Double Slanted"
+       }
+      }
+     ]
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "AE21ABE5-462C-47DA-A174-2F2B09E60849"
+     },
+     "type": "singleEnum",
+     "possibleEnumValues": [
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "nonLocalizedValue",
+         "nonLocalizedValue": "Uniform"
+        },
+        "displayValue": "Uni",
+        "nonLocalizedValue": "Uniform"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "nonLocalizedValue",
+         "nonLocalizedValue": "Trapezoid"
+        },
+        "displayValue": "Trapez",
+        "nonLocalizedValue": "Trapezoid"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "nonLocalizedValue",
+         "nonLocalizedValue": "Polygonal"
+        },
+        "displayValue": "Polygon",
+        "nonLocalizedValue": "Polygonal"
+       }
+      }
+     ]
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "579822E8-8A61-429F-96AA-77E7C19C1D01"
+     },
+     "type": "area"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "7366A8DD-768F-43D4-84D9-5FF2951D298B"
+     },
+     "type": "area"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "5CA795EB-23A3-440F-95EF-72839A12BFD0"
+     },
+     "type": "angle"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "E2EBA8D5-84F7-4FFA-A28D-AD74784B906B"
+     },
+     "type": "angle"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "C405503F-E672-4DF9-8C2C-4231E66A62E1"
+     },
+     "type": "string"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "7E221F33-829B-4FBC-A670-E74DABCE6289"
+     },
+     "type": "string"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "C7DFE2E0-02B2-4143-B5A0-6B67CC3807F4"
+     },
+     "type": "boolean"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "0F8953BF-2A64-4950-9D6B-75FEE94630D0"
+     },
+     "type": "boolean"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "02956F1B-5058-40D1-A816-307074BA31E3"
+     },
+     "type": "stringList"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "3E2F875B-5D53-4091-B302-D76DAD02AA70"
+     },
+     "type": "integer"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "41029F64-885D-459A-B74C-0309EBD4CF00"
+     },
+     "type": "integer"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "94AA3183-A9DF-EA4D-9AD2-C56B1D456BFB"
+     },
+     "type": "number"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "CE1831F8-5D51-EF4C-8A4C-35425D20B52C"
+     },
+     "type": "number"
+    }
+   },
+   {
+    "propertyDefinition": {
+     "propertyId": {
+      "guid": "BBE66EF5-4F3A-294F-ACAD-A5CF90E92961"
+     },
+     "type": "multiEnum",
+     "possibleEnumValues": [
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "X0"
+        },
+        "displayValue": "X0"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XC1"
+        },
+        "displayValue": "XC1"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XC2"
+        },
+        "displayValue": "XC2"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XC3"
+        },
+        "displayValue": "XC3"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XC4"
+        },
+        "displayValue": "XC4"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XD1"
+        },
+        "displayValue": "XD1"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XD2"
+        },
+        "displayValue": "XD2"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XD3"
+        },
+        "displayValue": "XD3"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XS1"
+        },
+        "displayValue": "XS1"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XS2"
+        },
+        "displayValue": "XS2"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XS3"
+        },
+        "displayValue": "XS3"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XF1"
+        },
+        "displayValue": "XF1"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XF2"
+        },
+        "displayValue": "XF2"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XF3"
+        },
+        "displayValue": "XF3"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XF4"
+        },
+        "displayValue": "XF4"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XA1"
+        },
+        "displayValue": "XA1"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XA2"
+        },
+        "displayValue": "XA2"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XA3"
+        },
+        "displayValue": "XA3"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "WO"
+        },
+        "displayValue": "WO"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "WF"
+        },
+        "displayValue": "WF"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "WA"
+        },
+        "displayValue": "WA"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "WS"
+        },
+        "displayValue": "WS"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XM1"
+        },
+        "displayValue": "XM1"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XM2"
+        },
+        "displayValue": "XM2"
+       }
+      },
+      {
+       "enumValue": {
+        "enumValueId": {
+         "type": "displayValue",
+         "displayValue": "XM3"
+        },
+        "displayValue": "XM3"
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "official": {
+  "propertyValuesForElements": [
+   {
+    "propertyValues": [
+     {
+      "propertyValue": {
+       "type": "length",
+       "status": "normal",
+       "value": 3
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "length",
+       "status": "normal",
+       "value": 0.545
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "volume",
+       "status": "normal",
+       "value": 1.635
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "volume",
+       "status": "normal",
+       "value": 0
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "singleEnum",
+       "status": "normal",
+       "value": {
+        "type": "nonLocalizedValue",
+        "nonLocalizedValue": "Straight"
+       }
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "singleEnum",
+       "status": "normal",
+       "value": {
+        "type": "nonLocalizedValue",
+        "nonLocalizedValue": "Uniform"
+       }
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "area",
+       "status": "normal",
+       "value": 0
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "area",
+       "status": "normal",
+       "value": 0
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "angle",
+       "status": "normal",
+       "value": 1.570796327
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "angle",
+       "status": "normal",
+       "value": 1.570796327
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "string",
+       "status": "normal",
+       "value": "Ursprung + 1 (OG)"
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "string",
+       "status": "normal",
+       "value": "Wand-006"
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "boolean",
+       "status": "normal",
+       "value": true
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "boolean",
+       "status": "notEvaluated"
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "stringList",
+       "status": "normal",
+       "value": []
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "integer",
+       "status": "normal",
+       "value": 0
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "integer",
+       "status": "normal",
+       "value": 0
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "number",
+       "status": "userUndefined"
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "number",
+       "status": "userUndefined"
+      }
+     },
+     {
+      "propertyValue": {
+       "type": "multiEnum",
+       "status": "userUndefined"
+      }
+     }
+    ]
+   },
+   {
+    "error": {
+     "code": 7203,
+     "message": "Element not supported (element guid: \"EFC5F5F1-0841-AB48-B94B-E0DBE0473CBB\")"
+    }
+   },
+   {
+    "error": {
+     "code": 7204,
+     "message": "Element not found (element guid: \"00000000-0000-0000-0000-000000000001\")"
+    }
+   }
+  ]
+ },
+ "tapir": {
+  "propertyValuesForElements": [
+   {
+    "propertyValues": [
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "propertyValue": {
+       "value": ""
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     },
+     {
+      "error": {
+       "code": -2130312908,
+       "message": "Not available or not evaluated property"
+      }
+     }
+    ]
+   },
+   {
+    "error": {
+     "code": -2130313115,
+     "message": "Failed to get property values for element"
+    }
+   }
+  ]
+ }
+}
