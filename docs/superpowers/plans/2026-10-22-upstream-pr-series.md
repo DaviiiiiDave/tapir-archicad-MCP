@@ -6,7 +6,7 @@ stages:
   6: "PR 4: read/write classification and a read dispatcher"
   7: "PR 5: execution logging on the dispatch lifecycle"
   8: "PR 6: two-level command discovery"
-current: 4
+current: 5
 ---
 
 # Upstream PR Series Implementation Plan (Plan 5)
@@ -103,9 +103,9 @@ current: 4
 ### Task 2: Images as MCP image content, mapped in the generator config
 
 **Files:**
-- Modify: `scripts/generator_config.py`. Add the fields `image_fields: dict[str, str]` and `image_lists: dict[str, str]` to `ApiSourceConfig`, keyed by the camel command name like `paginated_commands`. Fill them in `TAPIR_CONFIG`:
+- Modify: `scripts/generator_config.py`. Add the fields `image_fields: dict[str, str]` and `image_lists: dict[str, str]` to `ApiSourceConfig`, keyed by the camel command name like `paginated_commands`. Fill each in the config of the source the command comes from:
   - `image_fields`: `GetElementPreviewImage` → `previewImage`, `GetFavoritePreviewImage` → `previewImage`, `GetRoomImage` → `roomImage`.
-  - `image_lists`: `GetProfileAttributePreview` → `previewImages`.
+  - `image_lists`: `GetProfileAttributePreview` → `previewImages`. This one is the official `API.GetProfileAttributePreview`, so it goes in `OFFICIAL_CONFIG` (corrected with Dave's approval, 2026-10-22).
   - Check every name against the 0.9.5 command list first. If a name is not there, stop and report it.
 - Modify: `scripts/generate_tools.py`. Emit `image_field="…"` or `image_list_field="…"` into `register_tool_for_dispatch(...)`, the same way `pagination_field` is emitted.
 - Modify: `src/tapir_archicad_mcp/tools/tool_registry.py`. The `register_tool_for_dispatch` keyword arguments `image_field: str | None = None` and `image_list_field: str | None = None` are stored on `ToolRegistryEntry`.
