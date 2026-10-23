@@ -6,7 +6,7 @@ stages:
   6: "PR 4: read/write classification and a read dispatcher"
   7: "PR 5: execution logging on the dispatch lifecycle"
   8: "PR 6: two-level command discovery"
-current: 5
+current: 6
 ---
 
 # Upstream PR Series Implementation Plan (Plan 5)
@@ -138,8 +138,8 @@ current: 5
 **Files:**
 - Modify: `src/tapir_archicad_mcp/pagination.py` (`PaginationSnapshot.page`). Every paged response carries `envelope: {<field>: {"total": n, "returned": k, "truncated": bool}}`, where `truncated` means more pages follow.
 - Modify: `src/tapir_archicad_mcp/tools/custom/functions.py`. Add one sentence to the `archicad_call_tool` description about `envelope`.
-- Modify: `README.md`. Add one line where pagination is described.
-- Test: the existing pagination tests in `tests/unit/test_custom_tools.py`, or a new `tests/unit/test_pagination.py` if upstream has none.
+- ~~Modify: `README.md`. Add one line where pagination is described.~~ Dropped with Dave's approval (2026-10-23): upstream's README does not describe pagination, and the tool description already explains `envelope`.
+- Test: the existing pagination tests, which live in `tests/unit/test_generated_tools.py`.
 
 **Interfaces:**
 - Produces the response key `envelope`. It is added only on paginated commands, on the first page and on continuations alike.
