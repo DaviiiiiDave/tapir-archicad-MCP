@@ -5,7 +5,7 @@ stages:
   5: "PR 3: pagination counts"
   6: "PR 4: read/write classification and a read dispatcher"
   7: "PR 5: execution logging on the dispatch lifecycle"
-  8: "PR 6: two-level command discovery"
+  8: "PR 6: two-level command discovery (superseded by upstream PR #68, not built)"
 current: 6
 ---
 
@@ -40,11 +40,21 @@ current: 6
 - Logging comes before discovery.
 - Execution is native: the controller implements, then the PR pipeline runs.
 
+## Update 2026-11-19: upstream v0.7.0
+
+The maintainer moved to Tapir 2.0.0 in v0.6.9 and shipped his own command search and element query in v0.7.0. Checked against the release notes, `docs/command-discovery.md` and the v0.7.0 source:
+
+- Where this plan says multiconn 0.9.5 or Tapir 1.7.2, read multiconn 0.10.0 and Tapir 2.0.0. The catalogue is now 801 commands.
+- **Stage 8 is not built.** `archicad_list_commands` takes keyword phrases and optional groups, ranks names and descriptions with synonyms, and returns up to 12 commands per page (upstream PR #68). The maintainer benchmarked it against seven other variants, including groups-only listing, which cost more than twice as much per successful run as groups plus keywords.
+- Stage 6 stands. The generated tools carry no read/write kind; `readOnlyHint=True` sits only on the custom helper tools, and `archicad_call_tool` is still `destructiveHint=True`.
+- Stage 7 stands. `request_lifecycle.py` in v0.7.0 still writes only the two INFO lines.
+- `elements_get_elements_by_type` and the classification lookup are excluded upstream in favour of `elements_query` (commit 20737a1). The Stage 6 smoke uses `elements_query`.
+
 ## Global Constraints
 
 - **Base.** Every PR branch starts from a fresh `upstream/master` (`git fetch upstream`), is named `upstream/<topic>`, is pushed to `origin`, and opens against `SzamosiMate/tapir-archicad-MCP` `master`.
 - **Never in an upstream PR:** `docs/superpowers/`, `.atrium.yaml`, `benchmark/`, `change_log.py`, `outcome.py`, `project_identity.py`, element-set modules, the `confirm` field, the `irreversible` kind.
-- **Environment.** `UV_PROJECT_ENVIRONMENT=$LOCALAPPDATA/uv-envs/tapir-archicad-mcp-upstream`. This is a separate env, because upstream pins multiconn 0.9.5 and the fork env holds 0.9.4. Run `uv sync --locked` first. Never create `.venv`, and never put an env inside OneDrive.
+- **Environment.** `UV_PROJECT_ENVIRONMENT=$LOCALAPPDATA/uv-envs/tapir-archicad-mcp-upstream`. This is a separate env, because upstream pins multiconn 0.10.0 (v0.7.0) and the fork env holds 0.9.4. Run `uv sync --locked` first. Never create `.venv`, and never put an env inside OneDrive.
 - **Generated code.** A PR that touches `scripts/` regenerates with upstream's generator (`uv run python scripts/generate_tools.py`) at the pinned multiconn version. The diff of `src/tapir_archicad_mcp/tools/generated/` contains only the lines the PR intends.
 - **Style.** Match upstream's code, comments and test style. English, plain, sparse comments. The smallest diff that does the job; no neighbouring clean-up.
 - **Error text** never echoes caller input values.
@@ -163,14 +173,14 @@ current: 6
 **Files:**
 - Modify: `scripts/generator_config.py`. Add explicit `read_commands: set[str]` and `write_commands: set[str]` per `ApiSourceConfig`, using camel names.
   - Port the fork's classification and fold the fork's `irreversible` set into `write`.
-  - Classify every command that upstream's 0.9.5 / Tapir 1.7.2 list adds. **Ambiguous new commands go to Dave before Step 3**, as a short table with the command, the proposed kind and the reason.
+  - Classify every command in upstream's current list (multiconn 0.10.0 / Tapir 2.0.0). **Ambiguous new commands go to Dave before Step 3**, as a short table with the command, the proposed kind and the reason.
   - "Read" means: it changes no project data, no files and no shared Teamwork state.
 - Modify: `scripts/generate_tools.py`.
   - Emit `kind="read"|"write"` into each registration.
   - If a command is in neither set, or in both, stop generation and name it.
 - Modify: `src/tapir_archicad_mcp/tools/tool_registry.py`. Add `kind: Literal["read", "write"]` to `register_tool_for_dispatch` and `ToolRegistryEntry`, and add `kind` to the catalog entry.
-- Modify: `src/tapir_archicad_mcp/tools/custom/functions.py` and `models.py`.
-  - `archicad_list_commands` shows each command's `kind`.
+- Modify: `src/tapir_archicad_mcp/tools/custom/functions.py`, `command_discovery.py` and `models.py`.
+  - `RankedCommand` in `command_discovery.py` gains `kind`, so the ranked `matches` show each command's kind. Browse pages stay names only.
   - Add a new MCP tool `archicad_read_tool(name, arguments)` with annotations `readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False`. It runs read commands through the same path as `archicad_call_tool`.
   - A write command makes it refuse before validation: "'<name>' changes the project; use archicad_call_tool."
   - `archicad_call_tool` keeps running every command, unchanged.
@@ -195,7 +205,7 @@ current: 6
   - Get Dave's OK on the ambiguous table.
   - Implement, regenerate, and check the generated diff.
 - [ ] **Step 4: Run the full suite, then the live smoke.**
-  - `archicad_read_tool` with `elements_get_elements_by_type` returns walls.
+  - `archicad_read_tool` with `elements_query` returns walls.
   - `archicad_read_tool` with `elements_create_walls` is refused, and no element is created.
 - [ ] **Step 5: Commit** `feat: classify commands as read or write and add a read-only dispatcher`.
 
@@ -237,47 +247,8 @@ The maintainer asked for this direction: enrich the existing lifecycle logging, 
 - [ ] **Step 4: Run the full suite, then the live smoke.** One read and one refused write. The JSONL file holds exactly the dispatched call.
 - [ ] **Step 5: Commit** `feat: log one structured record per dispatch, optionally to a JSONL file`.
 
-**Stage 7 ends** when the PR is open upstream.
+**Stage 7 ends** when the PR is open upstream. After the last PR, update memory.
 
-## Stage 8: PR 6 — two-level command discovery
+## Stage 8: PR 6 — two-level command discovery (superseded)
 
-### Task 6: Groups first, then the commands of chosen groups
-
-Measured on the fork catalog (308 commands):
-- the full listing is about 47,000 characters;
-- the largest group (`elements`, 73 commands) is about 11,000;
-- a typical task needs two or three groups.
-
-**Files:**
-- Modify: `scripts/generate_tools.py`.
-  - Emit `group="<short group>"` into each registration. The short group is the `group_mapping` value with a trailing `_` stripped, for example `solid_ops`.
-  - Write a generated module `src/tapir_archicad_mcp/tools/generated/groups.py` with `GROUP_SOURCES: dict[str, list[str]]`, which maps each short group to the sorted source category names mapped to it, across both API sources.
-- Modify: `src/tapir_archicad_mcp/tools/tool_registry.py`. `register_tool_for_dispatch(..., group: str)` stores the group in the catalog entry.
-- Modify: `src/tapir_archicad_mcp/tools/custom/functions.py` and `models.py`.
-  - `archicad_list_commands(groups: list[str] | None = None)`:
-    - **Without `groups`** it returns `[GroupOverview(name, commandCount, sources)]`.
-    - **With `groups`** it returns, for each requested group in request order, `[CommandOverview(name, description, kind)]` with full descriptions. `kind` is present once PR 4 has landed.
-    - **An unknown group name** raises `ToolError` that lists every valid group. No partial result.
-  - The description tells the model to list groups first, then request every group the task may need in one call.
-  - `archicad_get_command_schema` is unchanged.
-- Regenerate the wrappers. Only `group=` lines change, plus the new `groups.py`.
-- Test: `tests/unit/test_custom_tools.py`, `tests/unit/test_generator_config.py`.
-
-**Interfaces:**
-- Produces: `GroupOverview`, `archicad_list_commands(groups)`, `GROUP_SOURCES`, and the catalog field `group`.
-
-- [ ] **Step 1: Write the failing tests**
-  - `test_no_groups_lists_groups_with_counts`: the counts sum to the catalog size.
-  - `test_groups_return_their_commands_in_request_order`.
-  - `test_unknown_group_lists_valid_groups`.
-  - `test_every_registered_command_has_a_group`.
-  - `test_group_listing_is_much_smaller_than_the_catalog`: `elements` plus `properties` come to less than half the full listing's length.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement, then regenerate.**
-- [ ] **Step 4: Run the full suite, then the live smoke.**
-  - List the groups.
-  - Request `["elements"]`.
-  - Run one listed command through `archicad_read_tool`.
-- [ ] **Step 5: Commit** `feat: two-level command discovery, groups first`.
-
-**Stage 8 ends** when the PR is open upstream. After the last PR, update memory.
+Not built. The maintainer shipped command discovery himself in upstream v0.7.0 (PR #68): keyword phrases plus optional groups, ranked with synonyms, 12 commands per page, with his own benchmark in `docs/command-discovery.md`. See the update at the top of this plan.
